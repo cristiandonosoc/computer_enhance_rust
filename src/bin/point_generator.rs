@@ -6,10 +6,10 @@ use std::error::Error;
 
 #[derive(Serialize)]
 struct Coord {
-    x0: f64,
-    y0: f64,
-    x1: f64,
-    y1: f64,
+    x0: f32,
+    y0: f32,
+    x1: f32,
+    y1: f32,
 }
 
 fn generate_coord() -> Coord {
