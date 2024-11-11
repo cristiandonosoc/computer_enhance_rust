@@ -2,6 +2,7 @@ pub mod instructions;
 pub mod registers;
 
 use instructions::*;
+use log::debug;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -19,7 +20,8 @@ pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
 
     while !bytes.is_empty() {
         let (instruction, remaining_bytes) = decode_instruction(bytes)?;
-        println!("------------------------------------------\n{:?}", instruction);
+
+        debug!("\n{:?}", instruction);
         instructions.push(instruction);
         bytes = remaining_bytes;
     }

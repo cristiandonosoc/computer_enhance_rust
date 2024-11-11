@@ -59,11 +59,7 @@ impl MovInstruction {
     }
 
     pub fn mnemonic(&self) -> String {
-        format!(
-            "mov {}, {}",
-            self.get_dst_register(),
-            self.get_src_register(),
-        )
+        format!("mov {}, {}", self.get_dst_register(), self.get_src_register(),)
     }
 }
 
