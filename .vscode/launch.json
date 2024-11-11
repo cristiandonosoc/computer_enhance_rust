@@ -7,6 +7,43 @@
         {
             "type": "lldb",
             "request": "launch",
+            "name": "Cargo test",
+            "cargo": {
+                "args": [
+                    "test",
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo launch",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--lib"
+                ]
+            },
+            "args": []
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Cargo test",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib"
+                ]
+            },
+            "args": []
+        },
+
+        {
+            "type": "lldb",
+            "request": "launch",
             "name": "Debug unit tests in library 'computer_enhance_rust'",
             "cargo": {
                 "args": [
@@ -170,6 +207,25 @@
             },
             "args": [],
             "cwd": "${workspaceFolder}"
-        }
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'homework1'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--tests",
+                    "--no-run",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "kind": "test"
+                }
+            },
+            "args": [],
+            "env": { "CARGO_MANIFEST_DIR": "${workspaceFolder}" },
+            "cwd": "${workspaceFolder}"
+        },
     ]
 }

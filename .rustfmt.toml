@@ -3,5 +3,5 @@ max_width = 100
 fn_call_width = 100
 format_strings = true
 wrap_comments = true
-import_granularity = "Crate"
+import_granularity = "crate"
 use_field_init_shorthand = true

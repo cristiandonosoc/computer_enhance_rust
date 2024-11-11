@@ -9,10 +9,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let contents = std::fs::read(&args.input)?;
     let instructions = intel8086::disassemble(&contents)?;
 
-    println!("bits 16\n");
-    for instruction in instructions {
-        println!("{}", instruction)
-    }
+    let asm = intel8086::to_asm(&instructions);
+    println!("{}", asm);
 
     Ok(())
 }
