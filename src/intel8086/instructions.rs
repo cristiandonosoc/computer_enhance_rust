@@ -1,5 +1,3 @@
-use std::fmt::Display;
-
 use super::registers::*;
 
 #[derive(Debug)]
@@ -7,7 +5,7 @@ pub enum Instruction {
     Mov(MovInstruction),
 }
 
-impl Display for Instruction {
+impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Instruction::Mov(mov_instruction) => write!(f, "{}", mov_instruction),
@@ -17,7 +15,6 @@ impl Display for Instruction {
 
 // Mov Instruction ---------------------------------------------------------------------------------
 
-#[derive(Debug)]
 pub struct MovInstruction {
     pub data: [u8; 6],
 }
@@ -60,20 +57,48 @@ impl MovInstruction {
             true => interpret_register(self.reg(), self.w()),
         }
     }
+
+    pub fn mnemonic(&self) -> String {
+        format!(
+            "mov {}, {}",
+            self.get_dst_register(),
+            self.get_src_register(),
+        )
+    }
 }
 
-impl Display for MovInstruction {
+impl std::fmt::Display for MovInstruction {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.r#mod() != 0b11 {
             unimplemented!()
         }
 
-        write!(
+        write!(f, "{}", self.mnemonic())
+    }
+}
+
+impl std::fmt::Debug for MovInstruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        writeln!(f, "")?;
+        writeln!(f, "opcode: {:06b}", self.opcode())?;
+        writeln!(f, "D bit: {}", self.d())?;
+        writeln!(f, "W bit: {}", self.w())?;
+        writeln!(f, "MOD: {0} ({0:02b})", self.r#mod())?;
+        writeln!(
             f,
-            "mov {}, {}",
-            self.get_src_register(),
-            self.get_dst_register()
-        )
+            "REG: {0} ({0:03b}) -> {1}",
+            self.reg(),
+            interpret_register(self.reg(), self.w())
+        )?;
+        writeln!(
+            f,
+            "R/M: {0} ({0:03b}) -> {1}",
+            self.rm(),
+            interpret_register(self.rm(), self.w())
+        )?;
+        writeln!(f, "Mnemonic: {}", self.mnemonic())?;
+
+        Ok(())
     }
 }
 
