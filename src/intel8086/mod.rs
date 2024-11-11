@@ -1,5 +1,7 @@
+pub mod instructions;
 pub mod registers;
 
+use instructions::*;
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -12,23 +14,16 @@ pub enum IntelError {
     InvalidOpcode(u8),
 }
 
+pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
+    let mut instructions = vec![];
 
-pub fn disassemble(bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
-    let mut instructions = vec!();
-
-    loop {
-        let (instruction, bytes) = decode_instruction(bytes)?;
+    while !bytes.is_empty() {
+        let (instruction, remaining_bytes) = decode_instruction(bytes)?;
         instructions.push(instruction);
-        if bytes.is_empty() {
-            break;
-        }
-    };
+        bytes = remaining_bytes;
+    }
 
     Ok(instructions)
-}
-
-pub struct Instruction {
-    pub opcode: OpcodeByte
 }
 
 fn decode_instruction(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
@@ -36,35 +31,23 @@ fn decode_instruction(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> 
         return Err(IntelError::IncompleteByteStream);
     }
 
-    let opcode = OpcodeByte(bytes[0]);
-    match opcode.opcode() {
-        0b100010 => {
-            decode_mov(opcode, skip(bytes, 1))
-        }
-        _ => {
-            Err(IntelError::UnsupportedOpcode(opcode.opcode()))
-        }
+    let opcode = opcode_utils::opcode(bytes[0]);
+    match opcode {
+        0b100010 => decode_mov(bytes),
+        _ => Err(IntelError::UnsupportedOpcode(opcode)),
     }
 }
 
-fn decode_mov(_opcode: OpcodeByte, _bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
-    todo!()
-}
-
-pub struct OpcodeByte(pub u8);
-
-impl OpcodeByte {
-    pub fn opcode(&self) -> u8 {
-        self.0 >> 2
+fn decode_mov(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
+    if bytes.len() < 2 {
+        return Err(IntelError::IncompleteByteStream);
     }
 
-    pub fn d(&self) -> bool {
-        (self.0 & 0b10) != 0
-    }
-
-    pub fn w(&self) -> bool {
-        (self.0 & 0b01) != 0
-    }
+    // Create a new mov instruction with the first 2 bytes set.
+    let mut mi = MovInstruction { data: [0; 6] };
+    mi.data[0] = bytes[0];
+    mi.data[1] = bytes[1];
+    Ok((Instruction::Mov(mi), skip(bytes, 2)))
 }
 
 fn skip(bytes: &[u8], skip_amount: usize) -> &[u8] {

@@ -1,0 +1,175 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in library 'computer_enhance_rust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--lib",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "computer_enhance_rust",
+                    "kind": "lib"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'computer_enhance_rust'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=computer_enhance_rust",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "computer_enhance_rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'computer_enhance_rust'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=computer_enhance_rust",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "computer_enhance_rust",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'disassemble'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=disassemble",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "disassemble",
+                    "kind": "bin"
+                }
+            },
+            "args": ["test.a"],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'disassemble'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=disassemble",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "disassemble",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'point_generator'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=point_generator",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "point_generator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'point_generator'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=point_generator",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "point_generator",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug executable 'simple_point_average'",
+            "cargo": {
+                "args": [
+                    "build",
+                    "--bin=simple_point_average",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "simple_point_average",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        },
+        {
+            "type": "lldb",
+            "request": "launch",
+            "name": "Debug unit tests in executable 'simple_point_average'",
+            "cargo": {
+                "args": [
+                    "test",
+                    "--no-run",
+                    "--bin=simple_point_average",
+                    "--package=computer_enhance_rust"
+                ],
+                "filter": {
+                    "name": "simple_point_average",
+                    "kind": "bin"
+                }
+            },
+            "args": [],
+            "cwd": "${workspaceFolder}"
+        }
+    ]
+}
