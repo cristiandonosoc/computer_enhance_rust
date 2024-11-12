@@ -2,24 +2,27 @@ use super::registers::*;
 
 #[derive(Debug)]
 pub enum Instruction {
-    Mov(MovInstruction),
+    RegisterMemoryToFromRegister(Instruction_RegisterMemoryToFromRegister),
 }
 
 impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Instruction::Mov(mov_instruction) => write!(f, "{}", mov_instruction),
+            Instruction::RegisterMemoryToFromRegister(mov_instruction) => {
+                write!(f, "{}", mov_instruction)
+            }
         }
     }
 }
 
-// Mov Instruction ---------------------------------------------------------------------------------
+// RegisterMemoryToFromRegister --------------------------------------------------------------------
 
-pub struct MovInstruction {
+#[allow(non_camel_case_types)]
+pub struct Instruction_RegisterMemoryToFromRegister {
     pub data: [u8; 6],
 }
 
-impl MovInstruction {
+impl Instruction_RegisterMemoryToFromRegister {
     pub fn opcode(&self) -> u8 {
         opcode_utils::opcode(self.data[0])
     }
@@ -63,7 +66,7 @@ impl MovInstruction {
     }
 }
 
-impl std::fmt::Display for MovInstruction {
+impl std::fmt::Display for Instruction_RegisterMemoryToFromRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         if self.r#mod() != 0b11 {
             unimplemented!()
@@ -73,7 +76,7 @@ impl std::fmt::Display for MovInstruction {
     }
 }
 
-impl std::fmt::Debug for MovInstruction {
+impl std::fmt::Debug for Instruction_RegisterMemoryToFromRegister {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "")?;
         writeln!(f, "opcode: {:06b}", self.opcode())?;

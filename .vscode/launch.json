@@ -220,6 +220,7 @@
                     "--package=computer_enhance_rust"
                 ],
                 "filter": {
+                    "name": "homeworks",
                     "kind": "test"
                 }
             },

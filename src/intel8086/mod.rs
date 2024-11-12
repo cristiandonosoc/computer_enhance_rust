@@ -1,6 +1,8 @@
+mod byte_stream;
 pub mod instructions;
 pub mod registers;
 
+use byte_stream::ByteStream;
 use instructions::*;
 use log::debug;
 use thiserror::Error;
@@ -15,15 +17,15 @@ pub enum IntelError {
     InvalidOpcode(u8),
 }
 
-pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
+pub fn disassemble(bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
     let mut instructions = vec![];
 
-    while !bytes.is_empty() {
-        let (instruction, remaining_bytes) = decode_instruction(bytes)?;
+    let mut stream = ByteStream::new(bytes);
+    while !stream.is_empty() {
+        let instruction = decode_instruction(&mut stream)?;
 
         debug!("\n{:?}", instruction);
         instructions.push(instruction);
-        bytes = remaining_bytes;
     }
 
     Ok(instructions)
@@ -36,30 +38,26 @@ pub fn to_asm(instructions: &Vec<Instruction>) -> String {
     format!("bits 16\n\n{}", string)
 }
 
-fn decode_instruction(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
-    if bytes.is_empty() {
+fn decode_instruction(stream: &mut ByteStream) -> Result<Instruction, IntelError> {
+    if stream.is_empty() {
         return Err(IntelError::IncompleteByteStream);
     }
 
-    let opcode = opcode_utils::opcode(bytes[0]);
+    let opcode = opcode_utils::opcode(stream.peek().unwrap());
     match opcode {
-        0b100010 => decode_mov(bytes),
+        0b100010 => decode_mov(stream),
         _ => Err(IntelError::UnsupportedOpcode(opcode)),
     }
 }
 
-fn decode_mov(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
-    if bytes.len() < 2 {
-        return Err(IntelError::IncompleteByteStream);
-    }
+fn decode_mov(stream: &mut ByteStream) -> Result<Instruction, IntelError> {
+    let bytes = stream
+        .consume(2)
+        .map_err(|_| IntelError::IncompleteByteStream)?;
 
     // Create a new mov instruction with the first 2 bytes set.
-    let mut mi = MovInstruction { data: [0; 6] };
+    let mut mi = Instruction_RegisterMemoryToFromRegister { data: [0; 6] };
     mi.data[0] = bytes[0];
     mi.data[1] = bytes[1];
-    Ok((Instruction::Mov(mi), skip(bytes, 2)))
-}
-
-fn skip(bytes: &[u8], skip_amount: usize) -> &[u8] {
-    bytes.get(skip_amount..).unwrap_or(&[])
+    Ok(Instruction::RegisterMemoryToFromRegister(mi))
 }
