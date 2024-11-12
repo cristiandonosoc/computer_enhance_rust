@@ -43,7 +43,7 @@ fn decode_instruction(stream: &mut ByteStream) -> Result<Instruction, IntelError
         return Err(IntelError::IncompleteByteStream);
     }
 
-    let opcode = opcode_utils::opcode(stream.peek().unwrap());
+    let opcode = stream.peek().unwrap() >> 2;
     match opcode {
         0b100010 => decode_mov(stream),
         _ => Err(IntelError::UnsupportedOpcode(opcode)),
@@ -56,8 +56,26 @@ fn decode_mov(stream: &mut ByteStream) -> Result<Instruction, IntelError> {
         .map_err(|_| IntelError::IncompleteByteStream)?;
 
     // Create a new mov instruction with the first 2 bytes set.
-    let mut mi = Instruction_RegisterMemoryToFromRegister { data: [0; 6] };
+    let mut mi = Instruction_RegisterMemoryToFromRegister { data: [0; 4] };
     mi.data[0] = bytes[0];
     mi.data[1] = bytes[1];
+
+    match mi.r#mod() {
+        0b01 => {
+            let bytes = stream
+                .consume(1)
+                .map_err(|_| IntelError::IncompleteByteStream)?;
+            mi.data[2] = bytes[0];
+        }
+        0b10 => {
+            let bytes = stream
+                .consume(2)
+                .map_err(|_| IntelError::IncompleteByteStream)?;
+            mi.data[2] = bytes[0];
+            mi.data[3] = bytes[1];
+        }
+        _ => {}
+    };
+
     Ok(Instruction::RegisterMemoryToFromRegister(mi))
 }

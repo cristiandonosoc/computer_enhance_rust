@@ -53,3 +53,16 @@ pub(super) const REGISTERS_WORD: [Register; 8] = [
     REGISTER_SI,
     REGISTER_DI,
 ];
+
+//pub(super) const EAC_REGISTER: [&str; 8] = [
+//    "bx + si",
+//    "bx + di",
+//    "bp + si",
+//    "bp + di",
+//    "si",
+//    "di",
+//    "bp",
+//    "bx",
+//];
+
+
