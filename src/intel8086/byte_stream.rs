@@ -1,10 +1,12 @@
 use std::io::{Error, ErrorKind};
 
+#[allow(dead_code)]
 pub struct ByteStream<'a> {
     data: &'a [u8],
     index: usize,
 }
 
+#[allow(dead_code)]
 impl<'a> ByteStream<'a> {
     pub fn new(data: &'a [u8]) -> Self {
         return ByteStream { data, index: 0 };

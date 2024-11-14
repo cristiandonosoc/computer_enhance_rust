@@ -1,3 +1,4 @@
+use intel8086::error::IntelError;
 use similar::{ChangeTag, TextDiff};
 use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
@@ -15,7 +16,7 @@ pub enum TestError {
     #[error("Environment variable {env} not found")]
     EnvNotFound { env: String },
     #[error("IntelError: {0}")]
-    IntelError(#[from] intel8086::IntelError),
+    IntelError(#[from] IntelError),
 }
 
 impl TestError {
@@ -48,8 +49,6 @@ pub fn run_nasm_test(listing_name: &str) -> Result<(), TestError> {
 
     let got_instructions = intel8086::disassemble(&want_bytes)?;
     let got_asm = intel8086::to_asm(&got_instructions);
-
-    // return Err(Box::new(Error::new(ErrorKind::Other, "TEST FAILED")));
 
     // Write the asm we got into a file.
     let temp_asm_file = temp_dir.path().join("test.asm");
