@@ -130,6 +130,8 @@ fn get_cargo_root() -> Result<PathBuf, TestError> {
     Ok(PathBuf::from(cargo_env))
 }
 
+// Poor man's clean: Cleaning a file means removing empty lines and comments.
+// That way we can diff only on the actual content.
 fn clean_asm_file(input: &str) -> String {
     input
         .lines()
