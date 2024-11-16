@@ -17,6 +17,8 @@ pub enum TestError {
     EnvNotFound { env: String },
     #[error("IntelError: {0}")]
     IntelError(#[from] IntelError),
+    #[error("Program error: {stderr}\nContent:\n{content}")]
+    NasmError { stderr: String, content: String },
 }
 
 impl TestError {
@@ -90,11 +92,21 @@ fn run_nasm(output_dir: &Path, filepath: impl AsRef<Path>) -> Result<Vec<u8>, Te
     let temp_file = NamedTempFile::new_in(output_dir)
         .map_err(|e| TestError::io(output_dir.display().to_string(), e))?;
 
-    let _ = Command::new(nasm)
+    let output = Command::new(nasm)
         .args(["-o", temp_file.path().to_str().unwrap()])
         .arg(filepath.as_ref().as_os_str())
         .output()
         .map_err(|e| TestError::io(filepath.as_ref().display().to_string(), e))?;
+
+    if !output.status.success() {
+        let content = std::fs::read_to_string(&filepath)
+            .map_err(|e| TestError::io(filepath.as_ref().display().to_string(), e))?;
+
+        return Err(TestError::NasmError {
+            stderr: String::from_utf8(output.stderr).unwrap(),
+            content,
+        });
+    }
 
     let bytes = std::fs::read(&temp_file)
         .map_err(|e| TestError::io(temp_file.path().display().to_string(), e))?;

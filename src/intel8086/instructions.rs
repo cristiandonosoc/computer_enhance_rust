@@ -5,7 +5,7 @@ use super::registers::*;
 pub struct Instruction {
     pub data: [u8; 6], // Instructions are at most 6 bytes.
     pub mnemonic: String,
-    len: u8,
+    pub len: usize,
 }
 
 impl Instruction {
@@ -16,88 +16,130 @@ impl Instruction {
 
         let peek = bytes[0];
 
-        if peek & 0b111111_00 == 0b100010_00 {
-            return Self::decode_register_memory_to_from_register(bytes);
+        if compare_mask(peek, 0b1011, 4) {
+            return decode_immediate_to_register(bytes);
+        } else if compare_mask(peek, 0b100010, 6) {
+            return decode_register_memory_to_from_register(bytes);
         }
 
         Err(IntelError::UnsupportedOpcode(peek))
     }
 
-    pub fn len(&self) -> usize {
-        self.len as usize
+    fn new() -> Self {
+        Instruction {
+            data: [0; 6],
+            mnemonic: "".to_owned(),
+            len: 0,
+        }
     }
 
-    fn decode_register_memory_to_from_register(bytes: &[u8]) -> Result<(Self, &[u8]), IntelError> {
-        let (first_bytes, rest) = consume(bytes, 2)?;
+    fn add_byte(&mut self, byte: u8) -> Result<&mut Self, IntelError> {
+        if self.len == 6 {
+            return Err(IntelError::InstructionOverflow);
+        }
 
-        let val_d: bool = (first_bytes[0] & 0b10) != 0;
-        let val_w: bool = (first_bytes[0] & 0b01) != 0;
-        let val_mod: u8 = first_bytes[1] >> 6;
-        let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
-        let val_rm: u8 = first_bytes[1] & 0b111;
+        self.data[self.len] = byte;
+        self.len += 1;
+        Ok(self)
+    }
 
-        let mut instruction_data = [0; 6];
-        instruction_data[0] = first_bytes[0];
-        instruction_data[1] = first_bytes[1];
+    fn add_bytes(&mut self, bytes: &[u8]) -> Result<&mut Self, IntelError> {
+        for byte in bytes {
+            self.add_byte(*byte)?;
+        }
+        Ok(self)
+    }
+}
 
-        let (operand, reg, len, rest) = match val_mod {
-            0b00 => {
-                let reg = interpret_register(val_reg, val_w).to_string();
+fn decode_immediate_to_register(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
+    let (data, rest) = consume(bytes, 1)?;
+    let peek = data[0];
+    let val_w: bool = (peek & 0b1000) != 0;
+    let val_reg: u8 = peek & 0b111;
 
-                if val_rm != 0b110 {
-                    let operand = eac(val_rm);
-                    (operand, reg, 2, rest)
-                } else {
-                    // Otherwise it is a DIRECT ACCESS.
-                    let (data, rest) = consume(rest, 2)?;
-                    instruction_data[2] = data[0];
-                    instruction_data[3] = data[1];
+    let mut instruction = Instruction::new();
+    instruction.add_byte(peek)?;
 
-                    let operand = format!("{}", to_intel_u16(data));
+    let (value, rest) = if !val_w {
+        let (data, rest) = consume(rest, 1)?;
+        instruction.add_byte(data[0])?;
+        ((data[0] as u16), rest)
+    } else {
+        let (data, rest) = consume(rest, 2)?;
+        instruction.add_bytes(data)?;
+        (to_intel_u16(data), rest)
+    };
 
-                    (operand, reg, 4, rest)
-                }
-            }
-            0b01 => {
-                let (data, rest) = consume(rest, 1)?;
+    let dst = interpret_register(val_reg, val_w);
+    instruction.mnemonic = format!("mov {}, {}", dst, value);
 
-                let operand = format!("{} + {}", eac(val_rm), data[0]);
-                let reg = interpret_register(val_reg, val_w).to_string();
-                (operand, reg, 3, rest)
-            }
-            0b10 => {
+    Ok((instruction, rest))
+}
+
+fn decode_register_memory_to_from_register(
+    bytes: &[u8],
+) -> Result<(Instruction, &[u8]), IntelError> {
+    let (first_bytes, rest) = consume(bytes, 2)?;
+
+    let val_d: bool = (first_bytes[0] & 0b10) != 0;
+    let val_w: bool = (first_bytes[0] & 0b01) != 0;
+    let val_mod: u8 = first_bytes[1] >> 6;
+    let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
+    let val_rm: u8 = first_bytes[1] & 0b111;
+
+    let mut instruction = Instruction::new();
+    instruction.add_bytes(first_bytes)?;
+
+    let (operand, reg, rest) = match val_mod {
+        0b00 => {
+            let reg = interpret_register(val_reg, val_w).to_string();
+
+            if val_rm != 0b110 {
+                let operand = format!("[{}]", eac(val_rm));
+                (operand, reg, rest)
+            } else {
+                // Otherwise it is a DIRECT ACCESS.
                 let (data, rest) = consume(rest, 2)?;
+                instruction.add_bytes(data)?;
 
-                let value = to_intel_u16(data);
-                let operand = format!("{} + {}", eac(val_rm), value);
-                let reg = interpret_register(val_reg, val_w).to_string();
-                (operand, reg, 4, rest)
+                let operand = format!("{}", to_intel_u16(data));
+                (operand, reg, rest)
             }
-            0b11 => {
-                let operand = interpret_register(val_rm, val_w).to_string();
-                let reg = interpret_register(val_reg, val_w).to_string();
+        }
+        0b01 => {
+            let (data, rest) = consume(rest, 1)?;
+            instruction.add_byte(data[0])?;
 
-                (operand, reg, 2, rest)
-            }
-            _ => panic!(),
-        };
+            let operand = format!("[{} + {}]", eac(val_rm), data[0]);
+            let reg = interpret_register(val_reg, val_w).to_string();
+            (operand, reg, rest)
+        }
+        0b10 => {
+            let (data, rest) = consume(rest, 2)?;
+            instruction.add_bytes(data)?;
 
-        let (src, dst) = if val_d {
-            (operand, reg)
-        } else {
-            (reg, operand)
-        };
+            let value = to_intel_u16(data);
+            let operand = format!("[{} + {}]", eac(val_rm), value);
+            let reg = interpret_register(val_reg, val_w).to_string();
+            (operand, reg, rest)
+        }
+        0b11 => {
+            let operand = interpret_register(val_rm, val_w).to_string();
+            let reg = interpret_register(val_reg, val_w).to_string();
 
-        let mnemonic = format!("mov {}, {}", dst, src);
-        Ok((
-            Instruction {
-                data: instruction_data,
-                len,
-                mnemonic,
-            },
-            rest,
-        ))
-    }
+            (operand, reg, rest)
+        }
+        _ => panic!(),
+    };
+
+    let (src, dst) = if val_d {
+        (operand, reg)
+    } else {
+        (reg, operand)
+    };
+
+    instruction.mnemonic = format!("mov {}, {}", dst, src);
+    Ok((instruction, rest))
 }
 
 impl std::fmt::Display for Instruction {
@@ -116,8 +158,15 @@ fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), IntelError> {
     Ok((consumed, rest))
 }
 
+fn compare_mask(value: u8, mask: u8, mask_len: u8) -> bool {
+    let shifted = value >> (8 - mask_len);
+    shifted == mask
+}
+
 fn to_intel_u16(data: &[u8]) -> u16 {
-    (data[0] as u16) & ((data[1] as u16) << 8)
+    let b1: u16 = data[0] as u16;
+    let b2: u16 = (data[1] as u16) << 8;
+    b1 | b2
 }
 
 fn eac(val_rm: u8) -> String {

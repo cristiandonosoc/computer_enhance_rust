@@ -8,6 +8,8 @@ pub enum IntelError {
     UnsupportedOpcode(u8),
     #[error("Invalid opcode: {0:08b}")]
     InvalidOpcode(u8),
+    #[error("Instruction overflow")]
+    InstructionOverflow,
 }
 
 

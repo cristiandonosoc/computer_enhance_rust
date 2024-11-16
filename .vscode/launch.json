@@ -211,7 +211,7 @@
         {
             "type": "lldb",
             "request": "launch",
-            "name": "Debug unit tests in executable 'homework1'",
+            "name": "Debug unit tests in executable 'homeworks'",
             "cargo": {
                 "args": [
                     "test",
