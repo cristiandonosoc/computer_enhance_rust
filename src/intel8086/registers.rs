@@ -14,6 +14,14 @@ pub fn interpret_register(index: u8, w: bool) -> Register {
     }
 }
 
+pub fn interpret_accumulator(w: bool) -> Register {
+    if w {
+        REGISTER_AX
+    } else {
+        REGISTER_AL
+    }
+}
+
 pub const REGISTER_AL: Register = Register("al");
 pub const REGISTER_CL: Register = Register("cl");
 pub const REGISTER_DL: Register = Register("dl");
@@ -54,6 +62,7 @@ pub(super) const REGISTERS_WORD: [Register; 8] = [
     REGISTER_DI,
 ];
 
+#[rustfmt::skip]
 pub(super) const EAC_REGISTER: [&str; 8] = [
     "bx + si",
     "bx + di",
@@ -64,5 +73,3 @@ pub(super) const EAC_REGISTER: [&str; 8] = [
     "bp",
     "bx",
 ];
-
-

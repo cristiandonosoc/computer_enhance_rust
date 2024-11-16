@@ -1,4 +1,3 @@
-mod byte_stream;
 pub mod error;
 pub mod instructions;
 pub mod registers;

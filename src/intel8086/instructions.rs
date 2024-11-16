@@ -18,6 +18,10 @@ impl Instruction {
 
         if compare_mask(peek, 0b1011, 4) {
             return decode_immediate_to_register(bytes);
+        } else if compare_mask(peek, 0b1010000, 7) {
+            return decode_memory_to_accumulator(bytes);
+        } else if compare_mask(peek, 0b1010001, 7) {
+            return decode_accumulator_to_memory(bytes);
         } else if compare_mask(peek, 0b100010, 6) {
             return decode_register_memory_to_from_register(bytes);
         }
@@ -72,6 +76,37 @@ fn decode_immediate_to_register(bytes: &[u8]) -> Result<(Instruction, &[u8]), In
 
     let dst = interpret_register(val_reg, val_w);
     instruction.mnemonic = format!("mov {}, {}", dst, value);
+
+    Ok((instruction, rest))
+}
+
+fn decode_memory_to_accumulator(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
+    decode_accumulator_to_from_memory(bytes, true)
+}
+
+fn decode_accumulator_to_memory(bytes: &[u8]) -> Result<(Instruction, &[u8]), IntelError> {
+    decode_accumulator_to_from_memory(bytes, false)
+}
+
+// Depending on this "d" bit, determines whether the accumulator is the destination.
+fn decode_accumulator_to_from_memory(bytes: &[u8], direction: bool) -> Result<(Instruction, &[u8]), IntelError> {
+    let (data, rest) = consume(bytes, 3)?;
+
+    let val_w: bool = (data[0] & 0b1) != 0;
+    let reg = interpret_accumulator(val_w).to_string();
+    let value = format!("[{}]", to_intel_u16(&data[1..]));
+
+    let mut instruction = Instruction::new();
+    instruction.add_bytes(data)?;
+
+    let (src, dst) = if direction {
+        (value, reg)
+    } else {
+        (reg, value)
+    };
+
+
+    instruction.mnemonic = format!("mov {}, {}", dst, src);
 
     Ok((instruction, rest))
 }
