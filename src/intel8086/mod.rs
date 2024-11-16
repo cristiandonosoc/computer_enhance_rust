@@ -11,13 +11,11 @@ pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
     let mut instructions = vec![];
 
     while !bytes.is_empty() {
-        let instruction = Instruction::new(bytes)?;
+        let (instruction, rest) = Instruction::decode(bytes)?;
         debug!("\n{:?}", instruction);
-
-        bytes = bytes
-            .get(instruction.len()..)
-            .ok_or(IntelError::IncompleteByteStream)?;
         instructions.push(instruction);
+
+        bytes = rest;
     }
 
     Ok(instructions)
