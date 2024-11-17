@@ -143,7 +143,7 @@ pub(super) fn decode_mov_accumulator_to_from_memory(bytes: &[u8], direction: boo
     Ok((instruction, rest))
 }
 
-pub(super) fn decode_jump(bytes: &[u8]) -> IntelResult {
+pub(super) fn decode_jump<'a>(bytes: &'a[u8], op: &'static str) -> IntelResult<'a> {
     let (data, rest) = consume(bytes, 2)?;
 
     let mut instruction = Instruction::new();
@@ -151,7 +151,7 @@ pub(super) fn decode_jump(bytes: &[u8]) -> IntelResult {
 
     // We use signed offset.
     let offset = data[1] as i8;
-    instruction.mnemonic = format!("je {}", encode_jump_offset(offset));
+    instruction.mnemonic = format!("{} {}", op, encode_jump_offset(offset));
 
     Ok((instruction, rest))
 }

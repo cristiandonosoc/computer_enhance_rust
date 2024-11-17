@@ -90,3 +90,24 @@ pub(super) const OP_MAPPING: [Option<&'static str>; 8] = [
     None,
     Some("cmp"),
 ];
+
+pub(super) const SHORT_JUMPS: &[(u8, &str)] = &[
+    (0b0111_0000, "jo"),   // Overflow
+    (0b0111_0001, "jno"),  // Not Overflow
+    (0b0111_0010, "jb"),   // Below/Not Above or Equal/Carry
+    (0b0111_0011, "jnb"),  // Not Below/Above or Equal/Not Carry
+    (0b0111_0100, "je"),   // Equal/Zero
+    (0b0111_0101, "jne"),  // Not Equal/Not Zero
+    (0b0111_0110, "jbe"),  // Below or Equal/Not Above
+    (0b0111_0111, "jnbe"), // Not Below or Equal/Above
+    (0b0111_1000, "js"),   // Sign
+    (0b0111_1001, "jns"),  // Not Sign
+    (0b0111_1010, "jp"),   // Parity/Parity Even
+    (0b0111_1011, "jnp"),  // No Parity/Parity Odd
+    (0b0111_1100, "jl"),   // Less/Not Greater or Equal
+    (0b0111_1101, "jnl"),  // Not Less/Greater or Equal
+    (0b0111_1110, "jle"),  // Less or Equal/Not Greater
+    (0b0111_1111, "jnle"), // Not Less or Equal/Greater
+    (0b1110_0011, "jcxz"), // Jump if CX Zero
+    (0b1110_1011, "jmp"),  // Short Jump
+];

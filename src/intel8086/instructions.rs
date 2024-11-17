@@ -1,3 +1,5 @@
+use crate::intel8086::registers::SHORT_JUMPS;
+
 use super::decoding::*;
 use super::error::*;
 use log::debug;
@@ -54,8 +56,10 @@ impl Instruction {
         }
 
         // Jumps
-        if compare_mask(peek, 0b01110100, 8) {
-            return decode_jump(bytes);
+        for (jump_opcode, op) in SHORT_JUMPS {
+            if peek == *jump_opcode {
+                return decode_jump(bytes, op);
+            }
         }
 
         Err(IntelError::UnsupportedOpcode(peek))
