@@ -18,9 +18,11 @@ impl Instruction {
 
         // Register/Memory to/from either.
         if compare_mask(peek, 0b100010, 6) {
-            return decode_op_register_memory_to_from_either(bytes);
+            return decode_op_register_memory_to_from_either(bytes); // mov.
         } else if compare_mask(peek, 0b000000, 6) {
-            return decode_op_register_memory_to_from_either(bytes);
+            return decode_op_register_memory_to_from_either(bytes); // add.
+        } else if compare_mask(peek, 0b001010, 6) {
+            return decode_op_register_memory_to_from_either(bytes); // sub.
         }
 
         if compare_mask(peek, 0b1011, 4) {
@@ -41,6 +43,8 @@ impl Instruction {
             return decode_mov_accumulator_to_from_memory(bytes, false);
         } else if compare_mask(peek, 0b000010, 7) {
             return decode_op_immediate_to_accumulator(bytes, "add");
+        } else if compare_mask(peek, 0b0010110, 7) {
+            return decode_op_immediate_to_accumulator(bytes, "sub");
         }
 
         Err(IntelError::UnsupportedOpcode(peek))
