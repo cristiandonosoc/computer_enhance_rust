@@ -80,15 +80,8 @@ fn decode_mov_immediate_to_register(bytes: &[u8]) -> IntelResult {
     let mut instruction = Instruction::new();
     instruction.add_byte(peek)?;
 
-    let (value, rest) = if !val_w {
-        let (data, rest) = consume(rest, 1)?;
-        instruction.add_byte(data[0])?;
-        ((data[0] as u16), rest)
-    } else {
-        let (data, rest) = consume(rest, 2)?;
-        instruction.add_bytes(data)?;
-        (to_intel_u16(data), rest)
-    };
+    // No sign-extension.
+    let (value, rest) = consume_immediate(&mut instruction, rest, val_w, false)?;
 
     let dst = interpret_register(val_reg, val_w);
     instruction.mnemonic = format!("mov {}, {}", dst, value);

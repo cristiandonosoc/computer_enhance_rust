@@ -17,47 +17,19 @@ pub(super) fn decode_op_register_memory_to_from_either(bytes: &[u8]) -> IntelRes
     let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
     let val_rm: u8 = first_bytes[1] & 0b111;
 
+    debug!("BYTE 0: {:08b}", first_bytes[0]);
+    debug!("BYTE 1: {:08b}", first_bytes[1]);
+    debug!(
+        "D: {}, W: {}, MOD: {:02b}, REG: {:03b}, RM: {:03b}",
+        val_d, val_w, val_mod, val_reg, val_rm
+    );
+
     let mut instruction = Instruction::new();
     instruction.add_bytes(first_bytes)?;
 
     let reg = interpret_register(val_reg, val_w).to_string();
 
-    let (operand, rest) = match val_mod {
-        0b00 => {
-            if val_rm != 0b110 {
-                let operand = format!("[{}]", eac(val_rm));
-                (operand, rest)
-            } else {
-                // Otherwise it is a DIRECT ACCESS.
-                let (data, rest) = consume(rest, 2)?;
-                instruction.add_bytes(data)?;
-
-                let operand = format!("{}", to_intel_u16(data));
-                (operand, rest)
-            }
-        }
-        0b01 => {
-            let (data, rest) = consume(rest, 1)?;
-            instruction.add_byte(data[0])?;
-
-            let operand = format!("[{} + {}]", eac(val_rm), data[0]);
-            (operand, rest)
-        }
-        0b10 => {
-            let (data, rest) = consume(rest, 2)?;
-            instruction.add_bytes(data)?;
-
-            let value = to_intel_u16(data);
-            let operand = format!("[{} + {}]", eac(val_rm), value);
-            (operand, rest)
-        }
-        0b11 => {
-            let operand = interpret_register(val_rm, val_w).to_string();
-            (operand, rest)
-        }
-        _ => panic!(),
-    };
-
+    let (operand, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
     let (src, dst) = if val_d {
         (operand, reg)
     } else {
@@ -97,44 +69,9 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
 
     debug!("BYTE 0: {:08b}", first_bytes[0]);
     debug!("BYTE 1: {:08b}", first_bytes[1]);
-    debug!("W: {}, S: {}, MOD: {:03b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
+    debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
 
-    let (dst, rest) = match val_mod {
-        0b00 => {
-            if val_rm != 0b110 {
-                let operand = format!("[{}]", eac(val_rm));
-                (operand, rest)
-            } else {
-                // Otherwise it is a DIRECT ACCESS.
-                let (data, rest) = consume(rest, 2)?;
-                instruction.add_bytes(data)?;
-
-                let operand = format!("{}", to_intel_u16(data));
-                (operand, rest)
-            }
-        }
-        0b01 => {
-            let (data, rest) = consume(rest, 1)?;
-            instruction.add_byte(data[0])?;
-
-            let operand = format!("[{} + {}]", eac(val_rm), data[0]);
-            (operand, rest)
-        }
-        0b10 => {
-            let (data, rest) = consume(rest, 2)?;
-            instruction.add_bytes(data)?;
-
-            let value = to_intel_u16(data);
-            let operand = format!("[{} + {}]", eac(val_rm), value);
-            (operand, rest)
-        }
-        0b11 => {
-            let operand = interpret_register(val_rm, val_w).to_string();
-            (operand, rest)
-        }
-        _ => panic!(),
-    };
-
+    let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
     let (src, rest) = consume_immediate(&mut instruction, rest, val_w, val_s)?;
 
     instruction.mnemonic = format!("{} {}, {}", op, dst, src);
@@ -153,7 +90,53 @@ pub(super) fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), Int
     Ok((consumed, rest))
 }
 
-pub(super) fn consume_immediate<'a, 'i>(
+pub(super) fn consume_displacement<'i, 'a>(
+    instruction: &'i mut Instruction,
+    bytes: &'a [u8],
+    val_mod: u8,
+    val_rm: u8,
+    val_w: bool,
+) -> Result<(String, &'a [u8]), IntelError> {
+    let (displacement, rest) = match val_mod {
+        0b00 => {
+            if val_rm != 0b110 {
+                let operand = format!("[{}]", eac(val_rm));
+                (operand, bytes)
+            } else {
+                // Otherwise it is a DIRECT ACCESS.
+                let (data, rest) = consume(bytes, 2)?;
+                instruction.add_bytes(data)?;
+
+                let operand = format!("{}", to_intel_u16(data));
+                (operand, rest)
+            }
+        }
+        0b01 => {
+            let (data, rest) = consume(bytes, 1)?;
+            instruction.add_byte(data[0])?;
+
+            let operand = format!("[{} + {}]", eac(val_rm), data[0]);
+            (operand, rest)
+        }
+        0b10 => {
+            let (data, rest) = consume(bytes, 2)?;
+            instruction.add_bytes(data)?;
+
+            let value = to_intel_u16(data);
+            let operand = format!("[{} + {}]", eac(val_rm), value);
+            (operand, rest)
+        }
+        0b11 => {
+            let operand = interpret_register(val_rm, val_w).to_string();
+            (operand, bytes)
+        }
+        _ => panic!(),
+    };
+
+    Ok((displacement, rest))
+}
+
+pub(super) fn consume_immediate<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
     val_w: bool,
