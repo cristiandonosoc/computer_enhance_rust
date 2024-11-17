@@ -111,3 +111,9 @@ pub(super) const SHORT_JUMPS: &[(u8, &str)] = &[
     (0b1110_0011, "jcxz"), // Jump if CX Zero
     (0b1110_1011, "jmp"),  // Short Jump
 ];
+
+pub(super) const LOOP_JUMPS: &[(u8, &str)] = &[
+    (0b1110_0000, "loopnz"), // Loop while not zero
+    (0b1110_0001, "loopz"),  // Loop while zero
+    (0b1110_0010, "loop"),   // Loop unconditional
+];

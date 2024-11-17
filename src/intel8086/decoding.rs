@@ -143,7 +143,7 @@ pub(super) fn decode_mov_accumulator_to_from_memory(bytes: &[u8], direction: boo
     Ok((instruction, rest))
 }
 
-pub(super) fn decode_jump<'a>(bytes: &'a[u8], op: &'static str) -> IntelResult<'a> {
+pub(super) fn decode_jump<'a>(bytes: &'a [u8], op: &'static str) -> IntelResult<'a> {
     let (data, rest) = consume(bytes, 2)?;
 
     let mut instruction = Instruction::new();
@@ -273,7 +273,8 @@ fn encode_jump_offset(offset: i8) -> String {
         format!("$+{}+0", offset)
     } else if offset == 0 {
         "$+0".to_string()
-    } else { // offset < 0
+    } else {
+        // offset < 0
         format!("${}+0", offset)
     }
 }

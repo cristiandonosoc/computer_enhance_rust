@@ -1,7 +1,6 @@
-use crate::intel8086::registers::SHORT_JUMPS;
-
 use super::decoding::*;
 use super::error::*;
+use super::registers::*;
 use log::debug;
 
 #[derive(Debug)]
@@ -58,6 +57,13 @@ impl Instruction {
         // Jumps
         for (jump_opcode, op) in SHORT_JUMPS {
             if peek == *jump_opcode {
+                return decode_jump(bytes, op);
+            }
+        }
+
+        // Loops.
+        for (loop_opcode, op) in LOOP_JUMPS {
+            if peek == *loop_opcode {
                 return decode_jump(bytes, op);
             }
         }
