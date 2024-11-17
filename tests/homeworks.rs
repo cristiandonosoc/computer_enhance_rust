@@ -28,7 +28,7 @@ fn homework2() {
 
 #[test]
 fn homework3() {
-    //env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
 
     let listings = ["listing_41.asm"];
 

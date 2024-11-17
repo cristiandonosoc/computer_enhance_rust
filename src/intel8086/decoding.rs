@@ -17,8 +17,8 @@ pub(super) fn decode_op_register_memory_to_from_either(bytes: &[u8]) -> IntelRes
     let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
     let val_rm: u8 = first_bytes[1] & 0b111;
 
-    debug!("BYTE 0: {:08b}", first_bytes[0]);
-    debug!("BYTE 1: {:08b}", first_bytes[1]);
+    debug!("BYTE 0: {0:02X} {0:08b}", first_bytes[0]);
+    debug!("BYTE 1: {0:02X} {0:08b}", first_bytes[1]);
     debug!(
         "D: {}, W: {}, MOD: {:02b}, REG: {:03b}, RM: {:03b}",
         val_d, val_w, val_mod, val_reg, val_rm
@@ -67,8 +67,8 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
     let val_mod = (first_bytes[1] >> 6) & 0b11;
     let val_rm = first_bytes[1] & 0b111;
 
-    debug!("BYTE 0: {:08b}", first_bytes[0]);
-    debug!("BYTE 1: {:08b}", first_bytes[1]);
+    debug!("BYTE 0: {0:02X} {0:08b}", first_bytes[0]);
+    debug!("BYTE 1: {0:02X} {0:08b}", first_bytes[1]);
     debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
 
     let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
@@ -172,7 +172,7 @@ fn consume_displacement<'i, 'a>(
                 let (data, rest) = consume(bytes, 2)?;
                 instruction.add_bytes(data)?;
 
-                let operand = format!("{}", to_intel_u16(data));
+                let operand = format!("[{}]", to_intel_u16(data));
                 (operand, rest)
             }
         }
