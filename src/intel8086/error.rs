@@ -10,6 +10,8 @@ pub enum IntelError {
     InvalidOpcode(u8),
     #[error("Instruction overflow")]
     InstructionOverflow,
+    #[error("Unsupported operation: {0:03b}")]
+    UnsupportedOperation(u8),
 }
 
 

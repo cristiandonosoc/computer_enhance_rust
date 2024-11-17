@@ -1,3 +1,5 @@
+use super::error::*;
+
 #[derive(Copy, Clone, Debug)]
 pub struct Register(pub &'static str);
 
@@ -72,4 +74,19 @@ pub(super) const EAC_REGISTER: [&str; 8] = [
     "di",
     "bp",
     "bx",
+];
+
+pub(super) fn decode_op(op: u8) -> Result<&'static str, IntelError> {
+    OP_MAPPING[op as usize].ok_or(IntelError::UnsupportedOperation(op))
+}
+
+pub(super) const OP_MAPPING: [Option<&'static str>; 8] = [
+    Some("add"),
+    Some("mov"),
+    None,
+    None,
+    None,
+    Some("sub"),
+    None,
+    Some("cmp"),
 ];

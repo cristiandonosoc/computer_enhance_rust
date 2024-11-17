@@ -2,10 +2,9 @@ mod common;
 
 #[test]
 fn homework1() {
-    let listings = [
-        "listing_37.asm",
-        "listing_38.asm",
-    ];
+    //env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
+    let listings = ["listing_37.asm", "listing_38.asm"];
 
     for listing in listings {
         if let Err(e) = common::run_nasm_test(listing) {
@@ -16,9 +15,22 @@ fn homework1() {
 
 #[test]
 fn homework2() {
-    let listings = [
-        "listing_39.asm",
-    ];
+    //env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
+    let listings = ["listing_39.asm"];
+
+    for listing in listings {
+        if let Err(e) = common::run_nasm_test(listing) {
+            assert!(false, "{}", e);
+        }
+    }
+}
+
+#[test]
+fn homework3() {
+    //env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
+    let listings = ["listing_41.asm"];
 
     for listing in listings {
         if let Err(e) = common::run_nasm_test(listing) {

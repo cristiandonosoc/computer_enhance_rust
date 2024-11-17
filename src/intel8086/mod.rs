@@ -1,15 +1,18 @@
 pub mod error;
 pub mod instructions;
 pub mod registers;
+mod decoding;
 
 use error::IntelError;
 use instructions::*;
 use log::debug;
 
 pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
+
     let mut instructions = vec![];
 
     while !bytes.is_empty() {
+        debug!("Decoding new instruction");
         let (instruction, rest) = Instruction::decode(bytes)?;
         debug!("\n{:?}", instruction);
         instructions.push(instruction);
