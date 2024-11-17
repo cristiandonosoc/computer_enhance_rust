@@ -1,6 +1,5 @@
 use super::decoding::*;
 use super::error::*;
-use super::registers::*;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -37,9 +36,11 @@ impl Instruction {
 
         // Accumulator.
         if compare_mask(peek, 0b1010000, 7) {
-            return decode_memory_to_accumulator(bytes);
+            return decode_mov_accumulator_to_from_memory(bytes, true);
         } else if compare_mask(peek, 0b1010001, 7) {
-            return decode_accumulator_to_memory(bytes);
+            return decode_mov_accumulator_to_from_memory(bytes, false);
+        } else if compare_mask(peek, 0b000010, 7) {
+            return decode_op_immediate_to_accumulator(bytes, "add");
         }
 
         Err(IntelError::UnsupportedOpcode(peek))
@@ -69,54 +70,6 @@ impl Instruction {
         }
         Ok(self)
     }
-}
-
-fn decode_mov_immediate_to_register(bytes: &[u8]) -> IntelResult {
-    let (data, rest) = consume(bytes, 1)?;
-    let peek = data[0];
-    let val_w: bool = (peek & 0b1000) != 0;
-    let val_reg: u8 = peek & 0b111;
-
-    let mut instruction = Instruction::new();
-    instruction.add_byte(peek)?;
-
-    // No sign-extension.
-    let (value, rest) = consume_immediate(&mut instruction, rest, val_w, false)?;
-
-    let dst = interpret_register(val_reg, val_w);
-    instruction.mnemonic = format!("mov {}, {}", dst, value);
-
-    Ok((instruction, rest))
-}
-
-fn decode_memory_to_accumulator(bytes: &[u8]) -> IntelResult {
-    decode_accumulator_to_from_memory(bytes, true)
-}
-
-fn decode_accumulator_to_memory(bytes: &[u8]) -> IntelResult {
-    decode_accumulator_to_from_memory(bytes, false)
-}
-
-// Depending on this "d" bit, determines whether the accumulator is the destination.
-fn decode_accumulator_to_from_memory(bytes: &[u8], direction: bool) -> IntelResult {
-    let (data, rest) = consume(bytes, 3)?;
-
-    let val_w: bool = (data[0] & 0b1) != 0;
-    let reg = interpret_accumulator(val_w).to_string();
-    let value = format!("[{}]", to_intel_u16(&data[1..]));
-
-    let mut instruction = Instruction::new();
-    instruction.add_bytes(data)?;
-
-    let (src, dst) = if direction {
-        (value, reg)
-    } else {
-        (reg, value)
-    };
-
-    instruction.mnemonic = format!("mov {}, {}", dst, src);
-
-    Ok((instruction, rest))
 }
 
 impl std::fmt::Display for Instruction {

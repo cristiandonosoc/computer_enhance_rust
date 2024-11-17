@@ -72,7 +72,6 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
     debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
 
     let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
-
     let (src, rest) = consume_immediate(&mut instruction, rest, val_w, val_s)?;
 
     let mut size_specifier: &'static str = "";
@@ -84,9 +83,69 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
     Ok((instruction, rest))
 }
 
+pub(super) fn decode_mov_immediate_to_register(bytes: &[u8]) -> IntelResult {
+    let peek = bytes[0];
+    let val_w: bool = (peek & 0b1000) != 0;
+    let val_reg: u8 = peek & 0b111;
+    let register = interpret_register(val_reg, val_w);
+
+    decode_op_immediate_to_register(bytes, "mov", register, val_w)
+}
+
+pub(super) fn decode_op_immediate_to_accumulator<'a>(
+    bytes: &'a [u8],
+    op: &'static str,
+) -> IntelResult<'a> {
+    let peek = bytes[0];
+    let val_w: bool = (peek & 0b1) != 0;
+    let register = interpret_accumulator(val_w);
+
+    decode_op_immediate_to_register(bytes, op, register, val_w)
+}
+
+pub(super) fn decode_op_immediate_to_register<'a>(
+    bytes: &'a [u8],
+    op: &'static str,
+    register: Register,
+    val_w: bool,
+) -> IntelResult<'a> {
+    let (data, rest) = consume(bytes, 1)?;
+    let mut instruction = Instruction::new();
+    instruction.add_byte(data[0])?;
+
+    // No sign-extension.
+    let (value, rest) = consume_immediate(&mut instruction, rest, val_w, false)?;
+
+    instruction.mnemonic = format!("{} {}, {}", op, register.to_string(), value);
+
+    Ok((instruction, rest))
+}
+
+// Depending on this "d" bit, determines whether the accumulator is the destination.
+pub(super) fn decode_mov_accumulator_to_from_memory(bytes: &[u8], direction: bool) -> IntelResult {
+    let (data, rest) = consume(bytes, 3)?;
+
+    let val_w: bool = (data[0] & 0b1) != 0;
+    let reg = interpret_accumulator(val_w).to_string();
+    let value = format!("[{}]", to_intel_u16(&data[1..]));
+
+    let mut instruction = Instruction::new();
+    instruction.add_bytes(data)?;
+
+    let (src, dst) = if direction {
+        (value, reg)
+    } else {
+        (reg, value)
+    };
+
+    instruction.mnemonic = format!("mov {}, {}", dst, src);
+
+    Ok((instruction, rest))
+}
+
 // HELPERS -----------------------------------------------------------------------------------------
 
-pub(super) fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), IntelError> {
+fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), IntelError> {
     if bytes.len() < amount {
         return Err(IntelError::IncompleteByteStream);
     }
@@ -96,7 +155,7 @@ pub(super) fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), Int
     Ok((consumed, rest))
 }
 
-pub(super) fn consume_displacement<'i, 'a>(
+fn consume_displacement<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
     val_mod: u8,
@@ -142,16 +201,12 @@ pub(super) fn consume_displacement<'i, 'a>(
     Ok((displacement, rest))
 }
 
-// Adds the size specifier to the src if it's an immediate and the dst is memory, since there is no
-// other way of encoding the size.
-//fn process_displacement_immediate(displ
-//
 // Quite hacky.
 fn is_memory_displacement(displacement: &String) -> bool {
     displacement.starts_with("[")
 }
 
-pub(super) fn consume_immediate<'i, 'a>(
+fn consume_immediate<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
     val_w: bool,
@@ -188,12 +243,12 @@ pub(super) fn consume_immediate<'i, 'a>(
     return Ok((value, rest));
 }
 
-pub(super) fn to_intel_u16(data: &[u8]) -> u16 {
+fn to_intel_u16(data: &[u8]) -> u16 {
     let b1: u16 = data[0] as u16;
     let b2: u16 = (data[1] as u16) << 8;
     b1 | b2
 }
 
-pub(super) fn eac(val_rm: u8) -> String {
+fn eac(val_rm: u8) -> String {
     EAC_REGISTER[val_rm as usize].to_string()
 }
