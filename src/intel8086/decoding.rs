@@ -72,9 +72,15 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
     debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
 
     let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
+
     let (src, rest) = consume_immediate(&mut instruction, rest, val_w, val_s)?;
 
-    instruction.mnemonic = format!("{} {}, {}", op, dst, src);
+    let mut size_specifier: &'static str = "";
+    if is_memory_displacement(&dst) {
+        size_specifier = if val_w { "word" } else { "byte" };
+    }
+
+    instruction.mnemonic = format!("{} {} {}, {}", op, size_specifier, dst, src);
     Ok((instruction, rest))
 }
 
@@ -134,6 +140,15 @@ pub(super) fn consume_displacement<'i, 'a>(
     };
 
     Ok((displacement, rest))
+}
+
+// Adds the size specifier to the src if it's an immediate and the dst is memory, since there is no
+// other way of encoding the size.
+//fn process_displacement_immediate(displ
+//
+// Quite hacky.
+fn is_memory_displacement(displacement: &String) -> bool {
+    displacement.starts_with("[")
 }
 
 pub(super) fn consume_immediate<'i, 'a>(
