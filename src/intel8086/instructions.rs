@@ -1,5 +1,6 @@
 use super::decoding::*;
 use super::error::*;
+use log::debug;
 
 #[derive(Debug)]
 pub struct Instruction {
@@ -15,6 +16,7 @@ impl Instruction {
         }
 
         let peek = bytes[0];
+        debug!("PEEK: 0x{0:02X} 0b{0:08b}", peek);
 
         // Register/Memory to/from either.
         if compare_mask(peek, 0b100010, 6) {
@@ -49,6 +51,11 @@ impl Instruction {
             return decode_op_immediate_to_accumulator(bytes, "sub");
         } else if compare_mask(peek, 0b0011110, 7) {
             return decode_op_immediate_to_accumulator(bytes, "cmp");
+        }
+
+        // Jumps
+        if compare_mask(peek, 0b01110100, 8) {
+            return decode_jump(bytes);
         }
 
         Err(IntelError::UnsupportedOpcode(peek))

@@ -17,8 +17,8 @@ pub(super) fn decode_op_register_memory_to_from_either(bytes: &[u8]) -> IntelRes
     let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
     let val_rm: u8 = first_bytes[1] & 0b111;
 
-    debug!("BYTE 0: {0:02X} {0:08b}", first_bytes[0]);
-    debug!("BYTE 1: {0:02X} {0:08b}", first_bytes[1]);
+    debug!("BYTE 0: 0x{0:02X} 0b{0:08b}", first_bytes[0]);
+    debug!("BYTE 1: 0x{0:02X} 0b{0:08b}", first_bytes[1]);
     debug!(
         "D: {}, W: {}, MOD: {:02b}, REG: {:03b}, RM: {:03b}",
         val_d, val_w, val_mod, val_reg, val_rm
@@ -67,8 +67,8 @@ pub(super) fn decode_immediate_to_register_memory<'a>(
     let val_mod = (first_bytes[1] >> 6) & 0b11;
     let val_rm = first_bytes[1] & 0b111;
 
-    debug!("BYTE 0: {0:02X} {0:08b}", first_bytes[0]);
-    debug!("BYTE 1: {0:02X} {0:08b}", first_bytes[1]);
+    debug!("BYTE 0: 0x{0:02X} 0b{0:08b}", first_bytes[0]);
+    debug!("BYTE 1: 0x{0:02X} 0b{0:08b}", first_bytes[1]);
     debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
 
     let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
@@ -139,6 +139,19 @@ pub(super) fn decode_mov_accumulator_to_from_memory(bytes: &[u8], direction: boo
     };
 
     instruction.mnemonic = format!("mov {}, {}", dst, src);
+
+    Ok((instruction, rest))
+}
+
+pub(super) fn decode_jump(bytes: &[u8]) -> IntelResult {
+    let (data, rest) = consume(bytes, 2)?;
+
+    let mut instruction = Instruction::new();
+    instruction.add_bytes(data)?;
+
+    // We use signed offset.
+    let offset = data[1] as i8;
+    instruction.mnemonic = format!("je {}", encode_jump_offset(offset));
 
     Ok((instruction, rest))
 }
@@ -251,4 +264,16 @@ fn to_intel_u16(data: &[u8]) -> u16 {
 
 fn eac(val_rm: u8) -> String {
     EAC_REGISTER[val_rm as usize].to_string()
+}
+
+fn encode_jump_offset(offset: i8) -> String {
+    // The jump encoding has a 2 implicit offset.
+    let offset = offset + 2;
+    if offset > 0 {
+        format!("$+{}+0", offset)
+    } else if offset == 0 {
+        "$+0".to_string()
+    } else { // offset < 0
+        format!("${}+0", offset)
+    }
 }
