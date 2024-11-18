@@ -86,7 +86,7 @@ pub enum EAC {
 }
 
 impl EAC {
-    pub fn new(rm: u8, offset: u16) -> Self {
+    pub fn new(rm: u8, vmod: u8, offset: u16) -> Self {
         match rm {
             0b000 => EAC::BxSi(offset),
             0b001 => EAC::BxDi(offset),
@@ -95,7 +95,7 @@ impl EAC {
             0b100 => EAC::Si(offset),
             0b101 => EAC::Di(offset),
             0b110 => {
-                if offset == 0 {
+                if offset == 0 && vmod == 0 {
                     panic!("RM 0b110 should have an offset. Otherwise should be DirectAccess");
                 }
                 EAC::Bp(offset)
@@ -115,8 +115,8 @@ impl std::fmt::Display for EAC {
             EAC::BpDi(offset) => write!(f, "[bp + di + {}]", offset),
             EAC::Si(offset) => write!(f, "[si + {}]", offset),
             EAC::Di(offset) => write!(f, "[di + {}]", offset),
-            EAC::Bp(offset) => write!(f, "[si + {}]", offset),
-            EAC::Bx(offset) => write!(f, "[di + {}]", offset),
+            EAC::Bp(offset) => write!(f, "[bp + {}]", offset),
+            EAC::Bx(offset) => write!(f, "[bx + {}]", offset),
             EAC::DirectAccess(value) => write!(f, "[{}]", value),
         }
     }

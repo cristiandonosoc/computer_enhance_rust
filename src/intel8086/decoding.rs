@@ -183,10 +183,11 @@ fn consume_displacement<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
 ) -> Result<(Operand, &'a [u8]), IntelError> {
-    let (displacement, rest) = match instruction.bits.vmod() {
+    let vmod = instruction.bits.vmod();
+    let (displacement, rest) = match vmod {
         0b00 => {
             if instruction.bits.rm() != 0b110 {
-                let eac = EAC::new(instruction.bits.rm(), 0);
+                let eac = EAC::new(instruction.bits.rm(), vmod, 0);
                 let operand = Operand::EAC(eac);
                 (operand, bytes)
             } else {
@@ -194,8 +195,8 @@ fn consume_displacement<'i, 'a>(
                 let (data, rest) = consume(bytes, 2)?;
                 instruction.add_bytes(data)?;
 
-                let value = to_intel_u16(data);
-                let eac = EAC::DirectAccess(value);
+                let offset = to_intel_u16(data);
+                let eac = EAC::DirectAccess(offset);
                 let operand = Operand::EAC(eac);
                 (operand, rest)
             }
@@ -204,7 +205,8 @@ fn consume_displacement<'i, 'a>(
             let (data, rest) = consume(bytes, 1)?;
             instruction.add_byte(data[0])?;
 
-            let eac = EAC::new(instruction.bits.rm(), data[0] as u16);
+            let offset = data[0] as u16;
+            let eac = EAC::new(instruction.bits.rm(), vmod, offset);
             let operand = Operand::EAC(eac);
             (operand, rest)
         }
@@ -212,8 +214,8 @@ fn consume_displacement<'i, 'a>(
             let (data, rest) = consume(bytes, 2)?;
             instruction.add_bytes(data)?;
 
-            let value = to_intel_u16(data);
-            let eac = EAC::new(instruction.bits.rm(), value);
+            let offset = to_intel_u16(data);
+            let eac = EAC::new(instruction.bits.rm(), vmod, offset);
             let operand = Operand::EAC(eac);
             (operand, rest)
         }

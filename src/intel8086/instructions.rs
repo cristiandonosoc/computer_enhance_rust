@@ -145,6 +145,10 @@ pub enum Operand {
 }
 
 impl Operand {
+    pub fn is_valid(&self) -> bool {
+        !matches!(self, Operand::Invalid)
+    }
+
     pub fn has_size(&self) -> bool {
         match self {
             Operand::Invalid => false,
@@ -158,13 +162,17 @@ impl Operand {
 
 impl std::fmt::Display for Instruction {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if !self.src.is_valid() {
+            return write!(f, "{} {}", self.operation, self.dst);
+        }
+
         if !self.src.has_size() && !self.dst.has_size() {
             let size_specifier = if self.bits.w() { "word" } else { "byte" };
 
-            return write!(f, "{} {} {} {}", self.operation, size_specifier, self.dst, self.src);
+            return write!(f, "{} {} {}, {}", self.operation, size_specifier, self.dst, self.src);
         }
 
-        write!(f, "{} {} {}", self.operation, self.dst, self.src)
+        write!(f, "{} {}, {}", self.operation, self.dst, self.src)
     }
 }
 
