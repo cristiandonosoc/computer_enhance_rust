@@ -11,34 +11,34 @@ pub(super) fn decode_op_register_memory_to_from_either(bytes: &[u8]) -> IntelRes
     debug!(function_name!());
     let (first_bytes, rest) = consume(bytes, 2)?;
 
-    let val_d: bool = (first_bytes[0] & 0b10) != 0;
-    let val_w: bool = (first_bytes[0] & 0b01) != 0;
-    let val_mod: u8 = first_bytes[1] >> 6;
-    let val_reg: u8 = (first_bytes[1] >> 3) & 0b111;
-    let val_rm: u8 = first_bytes[1] & 0b111;
-
-    debug!("BYTE 0: 0x{0:02X} 0b{0:08b}", first_bytes[0]);
-    debug!("BYTE 1: 0x{0:02X} 0b{0:08b}", first_bytes[1]);
-    debug!(
-        "D: {}, W: {}, MOD: {:02b}, REG: {:03b}, RM: {:03b}",
-        val_d, val_w, val_mod, val_reg, val_rm
-    );
-
     let mut instruction = Instruction::new();
     instruction.add_bytes(first_bytes)?;
 
-    let reg = interpret_register(val_reg, val_w).to_string();
+    instruction.bits.set_d((first_bytes[0] & 0b10) != 0);
+    instruction.bits.set_w((first_bytes[0] & 0b01) != 0);
+    instruction.bits.set_vmod(first_bytes[1] >> 6);
+    instruction.bits.set_reg((first_bytes[1] >> 3) & 0b111);
+    instruction.bits.set_rm(first_bytes[1] & 0b111);
 
-    let (operand, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
-    let (src, dst) = if val_d {
+    debug!("BYTE 0: 0x{0:02X} 0b{0:08b}", first_bytes[0]);
+    debug!("BYTE 1: 0x{0:02X} 0b{0:08b}", first_bytes[1]);
+    debug!("{:?}", instruction.bits);
+
+    let reg = Operand::Register(Register::interpret(instruction.bits.reg(), instruction.bits.w()));
+
+    let (operand, rest) = consume_displacement(&mut instruction, rest)?;
+    let (src, dst) = if instruction.bits.d() {
         (operand, reg)
     } else {
         (reg, operand)
     };
 
-    let op = decode_op((first_bytes[0] >> 3) & 0b111)?;
+    let operation = decode_op((first_bytes[0] >> 3) & 0b111)?;
 
-    instruction.mnemonic = format!("{} {}, {}", op, dst, src);
+    instruction.operation = operation;
+    instruction.src = src;
+    instruction.dst = dst;
+
     Ok((instruction, rest))
 }
 
@@ -47,76 +47,82 @@ pub(super) fn decode_op_immediate_to_register_memory(bytes: &[u8]) -> IntelResul
         return Err(IntelError::IncompleteByteStream);
     }
 
-    let op = decode_op((bytes[1] >> 3) & 0b111)?;
-    decode_immediate_to_register_memory(bytes, op)
+    let operation = decode_op((bytes[1] >> 3) & 0b111)?;
+    decode_immediate_to_register_memory(bytes, operation)
 }
 
 #[named]
-pub(super) fn decode_immediate_to_register_memory<'a>(
-    bytes: &'a [u8],
-    op: &'static str,
-) -> IntelResult<'a> {
+pub(super) fn decode_immediate_to_register_memory(
+    bytes: &[u8],
+    operation: Operation,
+) -> IntelResult {
     debug!(function_name!());
-    let mut instruction = Instruction::new();
 
     let (first_bytes, rest) = consume(bytes, 2)?;
+
+    let mut instruction = Instruction::new();
     instruction.add_bytes(first_bytes)?;
 
-    let val_w: bool = (first_bytes[0] & 0b1) != 0;
-    let val_s: bool = (first_bytes[0] & 0b10) != 0;
-    let val_mod = (first_bytes[1] >> 6) & 0b11;
-    let val_rm = first_bytes[1] & 0b111;
+    instruction.bits.set_w((first_bytes[0] & 0b1) != 0);
+    instruction.bits.set_s((first_bytes[0] & 0b10) != 0);
+    instruction.bits.set_vmod((first_bytes[1] >> 6) & 0b11);
+    instruction.bits.set_rm(first_bytes[1] & 0b111);
 
     debug!("BYTE 0: 0x{0:02X} 0b{0:08b}", first_bytes[0]);
     debug!("BYTE 1: 0x{0:02X} 0b{0:08b}", first_bytes[1]);
-    debug!("W: {}, S: {}, MOD: {:02b}, RM: {:03b}", val_w, val_s, val_mod, val_rm);
+    debug!("{:?}", instruction.bits);
 
-    let (dst, rest) = consume_displacement(&mut instruction, rest, val_mod, val_rm, val_w)?;
-    let (src, rest) = consume_immediate(&mut instruction, rest, val_w, val_s)?;
+    let (dst, rest) = consume_displacement(&mut instruction, rest)?;
+    let (src, rest) = consume_immediate(&mut instruction, rest)?;
 
-    let mut size_specifier: &'static str = "";
-    if is_memory_displacement(&dst) {
-        size_specifier = if val_w { "word" } else { "byte" };
-    }
+    instruction.operation = operation;
+    instruction.src = src;
+    instruction.dst = dst;
 
-    instruction.mnemonic = format!("{} {} {}, {}", op, size_specifier, dst, src);
     Ok((instruction, rest))
 }
 
 pub(super) fn decode_mov_immediate_to_register(bytes: &[u8]) -> IntelResult {
     let peek = bytes[0];
-    let val_w: bool = (peek & 0b1000) != 0;
-    let val_reg: u8 = peek & 0b111;
-    let register = interpret_register(val_reg, val_w);
+    let w: bool = (peek & 0b1000) != 0;
+    let reg: u8 = peek & 0b111;
+    let register = Register::interpret(reg, w);
 
-    decode_op_immediate_to_register(bytes, "mov", register, val_w)
+    decode_op_immediate_to_register(bytes, Operation::Mov, register, w)
 }
 
 pub(super) fn decode_op_immediate_to_accumulator<'a>(
     bytes: &'a [u8],
-    op: &'static str,
+    operation: Operation,
 ) -> IntelResult<'a> {
     let peek = bytes[0];
-    let val_w: bool = (peek & 0b1) != 0;
-    let register = interpret_accumulator(val_w);
+    let w: bool = (peek & 0b1) != 0;
+    let register = Register::interpret_accumulator(w);
 
-    decode_op_immediate_to_register(bytes, op, register, val_w)
+    decode_op_immediate_to_register(bytes, operation, register, w)
 }
 
 pub(super) fn decode_op_immediate_to_register<'a>(
     bytes: &'a [u8],
-    op: &'static str,
+    operation: Operation,
     register: Register,
-    val_w: bool,
+    w: bool,
 ) -> IntelResult<'a> {
     let (data, rest) = consume(bytes, 1)?;
+
     let mut instruction = Instruction::new();
     instruction.add_byte(data[0])?;
 
-    // No sign-extension.
-    let (value, rest) = consume_immediate(&mut instruction, rest, val_w, false)?;
+    instruction.bits.set_w(w);
+    instruction.bits.set_s(false);
+    instruction.bits.set_reg(register.reg);
 
-    instruction.mnemonic = format!("{} {}, {}", op, register.to_string(), value);
+    // No sign-extension.
+    let (src, rest) = consume_immediate(&mut instruction, rest)?;
+
+    instruction.operation = operation;
+    instruction.src = src;
+    instruction.dst = Operand::Register(register);
 
     Ok((instruction, rest))
 }
@@ -125,25 +131,28 @@ pub(super) fn decode_op_immediate_to_register<'a>(
 pub(super) fn decode_mov_accumulator_to_from_memory(bytes: &[u8], direction: bool) -> IntelResult {
     let (data, rest) = consume(bytes, 3)?;
 
-    let val_w: bool = (data[0] & 0b1) != 0;
-    let reg = interpret_accumulator(val_w).to_string();
-    let value = format!("[{}]", to_intel_u16(&data[1..]));
-
     let mut instruction = Instruction::new();
     instruction.add_bytes(data)?;
 
+    instruction.bits.set_w((data[0] & 0b1) != 0);
+    let accum = Operand::Register(Register::interpret_accumulator(instruction.bits.w()));
+    let value = to_intel_u16(&data[1..]);
+    let eac = Operand::EAC(EAC::DirectAccess(value));
+
     let (src, dst) = if direction {
-        (value, reg)
+        (eac, accum)
     } else {
-        (reg, value)
+        (accum, eac)
     };
 
-    instruction.mnemonic = format!("mov {}, {}", dst, src);
+    instruction.operation = Operation::Mov;
+    instruction.src = src;
+    instruction.dst = dst;
 
     Ok((instruction, rest))
 }
 
-pub(super) fn decode_jump<'a>(bytes: &'a [u8], op: &'static str) -> IntelResult<'a> {
+pub(super) fn decode_jump<'a>(bytes: &'a [u8], jump_op_name: &'static str) -> IntelResult<'a> {
     let (data, rest) = consume(bytes, 2)?;
 
     let mut instruction = Instruction::new();
@@ -151,7 +160,9 @@ pub(super) fn decode_jump<'a>(bytes: &'a [u8], op: &'static str) -> IntelResult<
 
     // We use signed offset.
     let offset = data[1] as i8;
-    instruction.mnemonic = format!("{} {}", op, encode_jump_offset(offset));
+
+    instruction.operation = Operation::Jump(jump_op_name);
+    instruction.dst = Operand::JumpOffset(offset);
 
     Ok((instruction, rest))
 }
@@ -171,21 +182,21 @@ fn consume(bytes: &[u8], amount: usize) -> Result<(&[u8], &[u8]), IntelError> {
 fn consume_displacement<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
-    val_mod: u8,
-    val_rm: u8,
-    val_w: bool,
-) -> Result<(String, &'a [u8]), IntelError> {
-    let (displacement, rest) = match val_mod {
+) -> Result<(Operand, &'a [u8]), IntelError> {
+    let (displacement, rest) = match instruction.bits.vmod() {
         0b00 => {
-            if val_rm != 0b110 {
-                let operand = format!("[{}]", eac(val_rm));
+            if instruction.bits.rm() != 0b110 {
+                let eac = EAC::new(instruction.bits.rm(), 0);
+                let operand = Operand::EAC(eac);
                 (operand, bytes)
             } else {
                 // Otherwise it is a DIRECT ACCESS.
                 let (data, rest) = consume(bytes, 2)?;
                 instruction.add_bytes(data)?;
 
-                let operand = format!("[{}]", to_intel_u16(data));
+                let value = to_intel_u16(data);
+                let eac = EAC::DirectAccess(value);
+                let operand = Operand::EAC(eac);
                 (operand, rest)
             }
         }
@@ -193,7 +204,8 @@ fn consume_displacement<'i, 'a>(
             let (data, rest) = consume(bytes, 1)?;
             instruction.add_byte(data[0])?;
 
-            let operand = format!("[{} + {}]", eac(val_rm), data[0]);
+            let eac = EAC::new(instruction.bits.rm(), data[0] as u16);
+            let operand = Operand::EAC(eac);
             (operand, rest)
         }
         0b10 => {
@@ -201,11 +213,13 @@ fn consume_displacement<'i, 'a>(
             instruction.add_bytes(data)?;
 
             let value = to_intel_u16(data);
-            let operand = format!("[{} + {}]", eac(val_rm), value);
+            let eac = EAC::new(instruction.bits.rm(), value);
+            let operand = Operand::EAC(eac);
             (operand, rest)
         }
         0b11 => {
-            let operand = interpret_register(val_rm, val_w).to_string();
+            let register = Register::interpret(instruction.bits.rm(), instruction.bits.w());
+            let operand = Operand::Register(register);
             (operand, bytes)
         }
         _ => panic!(),
@@ -214,28 +228,21 @@ fn consume_displacement<'i, 'a>(
     Ok((displacement, rest))
 }
 
-// Quite hacky.
-fn is_memory_displacement(displacement: &String) -> bool {
-    displacement.starts_with("[")
-}
-
 fn consume_immediate<'i, 'a>(
     instruction: &'i mut Instruction,
     bytes: &'a [u8],
-    val_w: bool,
-    val_s: bool,
-) -> Result<(u16, &'a [u8]), IntelError> {
+) -> Result<(Operand, &'a [u8]), IntelError> {
     // Non-wide means just 8 bits.
-    if !val_w {
+    if !instruction.bits.w() {
         let (data, rest) = consume(bytes, 1)?;
         instruction.add_byte(data[0])?;
         let value = data[0] as u16;
-        return Ok((value, rest));
+        return Ok((Operand::Immediate(value), rest));
     }
 
     // Depending on the s bit, it's whether we need to sign extend one byte,
     // or actually get 2 bytes.
-    if val_s {
+    if instruction.bits.s() {
         let (data, rest) = consume(bytes, 1)?;
         instruction.add_byte(data[0])?;
 
@@ -245,7 +252,7 @@ fn consume_immediate<'i, 'a>(
             value = value | (0xFF << 8);
         }
 
-        return Ok((value, rest));
+        return Ok((Operand::Immediate(value), rest));
     }
 
     // Just return the 16 bits.
@@ -253,7 +260,7 @@ fn consume_immediate<'i, 'a>(
     instruction.add_bytes(data)?;
     let value = to_intel_u16(data);
 
-    return Ok((value, rest));
+    return Ok((Operand::Immediate(value), rest));
 }
 
 fn to_intel_u16(data: &[u8]) -> u16 {
@@ -262,19 +269,12 @@ fn to_intel_u16(data: &[u8]) -> u16 {
     b1 | b2
 }
 
-fn eac(val_rm: u8) -> String {
-    EAC_REGISTER[val_rm as usize].to_string()
-}
-
-fn encode_jump_offset(offset: i8) -> String {
-    // The jump encoding has a 2 implicit offset.
-    let offset = offset + 2;
-    if offset > 0 {
-        format!("$+{}+0", offset)
-    } else if offset == 0 {
-        "$+0".to_string()
-    } else {
-        // offset < 0
-        format!("${}+0", offset)
+fn decode_op(op: u8) -> Result<Operation, IntelError> {
+    match op {
+        0b000 => Ok(Operation::Add),
+        0b001 => Ok(Operation::Mov),
+        0b101 => Ok(Operation::Sub),
+        0b111 => Ok(Operation::Cmp),
+        _ => Err(IntelError::UnsupportedOperation(op)),
     }
 }

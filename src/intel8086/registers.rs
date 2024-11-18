@@ -1,38 +1,45 @@
-use super::error::*;
-
 #[derive(Copy, Clone, Debug)]
-pub struct Register(pub &'static str);
+pub struct Register {
+    pub name: &'static str,
+    pub size: u8,
+    pub reg: u8,
+}
 
-impl std::fmt::Display for Register {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", self.0)
+impl Register {
+    const fn new(name: &'static str, size: u8, reg: u8) -> Self {
+        Register { name, size, reg }
+    }
+
+    pub fn len(&self) -> usize {
+        self.size as usize
+    }
+
+    pub fn interpret(reg: u8, w: bool) -> Self {
+        match w {
+            false => REGISTERS_BYTE[reg as usize],
+            true => REGISTERS_WORD[reg as usize],
+        }
+    }
+
+    pub fn interpret_accumulator(w: bool) -> Self {
+        if w {
+            REGISTER_AX
+        } else {
+            REGISTER_AL
+        }
     }
 }
 
-pub fn interpret_register(index: u8, w: bool) -> Register {
-    match w {
-        false => REGISTERS_BYTE[index as usize],
-        true => REGISTERS_WORD[index as usize],
-    }
-}
+pub const REGISTER_AL: Register = Register::new("al", 1, 0b000);
+pub const REGISTER_BL: Register = Register::new("bl", 1, 0b001);
+pub const REGISTER_CL: Register = Register::new("cl", 1, 0b010);
+pub const REGISTER_DL: Register = Register::new("dl", 1, 0b011);
+pub const REGISTER_AH: Register = Register::new("ah", 1, 0b100);
+pub const REGISTER_BH: Register = Register::new("bh", 1, 0b101);
+pub const REGISTER_CH: Register = Register::new("ch", 1, 0b110);
+pub const REGISTER_DH: Register = Register::new("dh", 1, 0b111);
 
-pub fn interpret_accumulator(w: bool) -> Register {
-    if w {
-        REGISTER_AX
-    } else {
-        REGISTER_AL
-    }
-}
-
-pub const REGISTER_AL: Register = Register("al");
-pub const REGISTER_CL: Register = Register("cl");
-pub const REGISTER_DL: Register = Register("dl");
-pub const REGISTER_BL: Register = Register("bl");
-pub const REGISTER_AH: Register = Register("ah");
-pub const REGISTER_CH: Register = Register("ch");
-pub const REGISTER_DH: Register = Register("dh");
-pub const REGISTER_BH: Register = Register("bh");
-
+#[rustfmt::skip]
 pub(super) const REGISTERS_BYTE: [Register; 8] = [
     REGISTER_AL,
     REGISTER_CL,
@@ -44,14 +51,14 @@ pub(super) const REGISTERS_BYTE: [Register; 8] = [
     REGISTER_BH,
 ];
 
-pub const REGISTER_AX: Register = Register("ax");
-pub const REGISTER_CX: Register = Register("cx");
-pub const REGISTER_DX: Register = Register("dx");
-pub const REGISTER_BX: Register = Register("bx");
-pub const REGISTER_SP: Register = Register("sp");
-pub const REGISTER_BP: Register = Register("bp");
-pub const REGISTER_SI: Register = Register("si");
-pub const REGISTER_DI: Register = Register("di");
+pub const REGISTER_AX: Register = Register::new("ax", 2, 0b000);
+pub const REGISTER_BX: Register = Register::new("bx", 2, 0b001);
+pub const REGISTER_CX: Register = Register::new("cx", 2, 0b010);
+pub const REGISTER_DX: Register = Register::new("dx", 2, 0b011);
+pub const REGISTER_SP: Register = Register::new("sp", 2, 0b100);
+pub const REGISTER_BP: Register = Register::new("bp", 2, 0b101);
+pub const REGISTER_SI: Register = Register::new("si", 2, 0b110);
+pub const REGISTER_DI: Register = Register::new("di", 2, 0b111);
 
 pub(super) const REGISTERS_WORD: [Register; 8] = [
     REGISTER_AX,
@@ -64,32 +71,58 @@ pub(super) const REGISTERS_WORD: [Register; 8] = [
     REGISTER_DI,
 ];
 
-#[rustfmt::skip]
-pub(super) const EAC_REGISTER: [&str; 8] = [
-    "bx + si",
-    "bx + di",
-    "bp + si",
-    "bp + di",
-    "si",
-    "di",
-    "bp",
-    "bx",
-];
-
-pub(super) fn decode_op(op: u8) -> Result<&'static str, IntelError> {
-    OP_MAPPING[op as usize].ok_or(IntelError::UnsupportedOperation(op))
+// Represents the Effective Address Calculation plus any optional offset.
+#[derive(Debug)]
+pub enum EAC {
+    BxSi(u16),
+    BxDi(u16),
+    BpSi(u16),
+    BpDi(u16),
+    Si(u16),
+    Di(u16),
+    Bp(u16),
+    Bx(u16),
+    DirectAccess(u16),
 }
 
-pub(super) const OP_MAPPING: [Option<&'static str>; 8] = [
-    Some("add"),
-    Some("mov"),
-    None,
-    None,
-    None,
-    Some("sub"),
-    None,
-    Some("cmp"),
-];
+impl EAC {
+    pub fn new(rm: u8, offset: u16) -> Self {
+        match rm {
+            0b000 => EAC::BxSi(offset),
+            0b001 => EAC::BxDi(offset),
+            0b010 => EAC::BpSi(offset),
+            0b011 => EAC::BpDi(offset),
+            0b100 => EAC::Si(offset),
+            0b101 => EAC::Di(offset),
+            0b110 => {
+                if offset == 0 {
+                    panic!("RM 0b110 should have an offset. Otherwise should be DirectAccess");
+                }
+                EAC::Bp(offset)
+            }
+            0b111 => EAC::Bx(offset),
+            _ => panic!("unexpected rm {}", rm),
+        }
+    }
+}
+
+impl std::fmt::Display for EAC {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            EAC::BxSi(offset) => write!(f, "[bx + si + {}]", offset),
+            EAC::BxDi(offset) => write!(f, "[bx + di + {}]", offset),
+            EAC::BpSi(offset) => write!(f, "[bp + si + {}]", offset),
+            EAC::BpDi(offset) => write!(f, "[bp + di + {}]", offset),
+            EAC::Si(offset) => write!(f, "[si + {}]", offset),
+            EAC::Di(offset) => write!(f, "[di + {}]", offset),
+            EAC::Bp(offset) => write!(f, "[si + {}]", offset),
+            EAC::Bx(offset) => write!(f, "[di + {}]", offset),
+            EAC::DirectAccess(value) => write!(f, "[{}]", value),
+        }
+    }
+}
+
+// Operations --------------------------------------------------------------------------------------
 
 pub(super) const SHORT_JUMPS: &[(u8, &str)] = &[
     (0b0111_0000, "jo"),   // Overflow
@@ -117,3 +150,9 @@ pub(super) const LOOP_JUMPS: &[(u8, &str)] = &[
     (0b1110_0001, "loopz"),  // Loop while zero
     (0b1110_0010, "loop"),   // Loop unconditional
 ];
+
+impl std::fmt::Display for Register {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
