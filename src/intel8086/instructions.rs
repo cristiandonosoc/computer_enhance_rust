@@ -7,7 +7,7 @@ use log::debug;
 #[derive(Debug, Default)]
 pub struct Instruction {
     pub data: [u8; 6], // Instructions are at most 6 bytes.
-    pub len: usize,
+    pub len: u8,
 
     pub operation: Operation,
 
@@ -41,7 +41,7 @@ pub struct InstructionBits {
 }
 
 impl Instruction {
-    pub fn decode(bytes: &[u8]) -> Result<(Self, &[u8]), IntelError> {
+    pub fn decode(bytes: &[u8]) -> Result<Self, IntelError> {
         if bytes.is_empty() {
             return Err(IntelError::IncompleteByteStream);
         }
@@ -107,21 +107,38 @@ impl Instruction {
         }
     }
 
-    pub(super) fn add_byte(&mut self, byte: u8) -> Result<&mut Self, IntelError> {
-        if self.len == 6 {
+    pub fn len(&self) -> usize {
+        self.len as usize
+    }
+
+    pub(super) fn consume(&mut self, bytes: &[u8], amount: usize) -> Result<(), IntelError> {
+        let start = self.len();
+        let end = self.len() + amount;
+
+        if end > bytes.len() {
+            return Err(IntelError::IncompleteByteStream);
+        }
+
+        if end > self.data.len() {
             return Err(IntelError::InstructionOverflow);
         }
 
-        self.data[self.len] = byte;
-        self.len += 1;
-        Ok(self)
+        self.data[start..end].copy_from_slice(&bytes[start..end]);
+        self.len += amount as u8;
+
+        Ok(())
     }
 
-    pub(super) fn add_bytes(&mut self, bytes: &[u8]) -> Result<&mut Self, IntelError> {
-        for byte in bytes {
-            self.add_byte(*byte)?;
-        }
-        Ok(self)
+    pub(super) fn lastu8(&self) -> u8 {
+        self.data[self.len() - 1]
+    }
+
+    pub(super) fn lastu16(&self) -> u16 {
+        let len = self.len();
+        let data: &[u8] = &self.data[(len - 2)..len];
+        let b1: u16 = data[0] as u16;
+        let b2: u16 = (data[1] as u16) << 8;
+        b1 | b2
     }
 }
 

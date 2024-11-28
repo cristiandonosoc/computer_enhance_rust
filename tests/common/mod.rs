@@ -59,7 +59,7 @@ pub fn run_nasm_test(listing_name: &str) -> Result<(), TestError> {
 
     // Read the asm file and they should be the same.
     let got_bytes = run_nasm(temp_dir.path(), temp_asm_file)?;
-    println!("GOT BYTES: {:02X?}", got_bytes);
+    println!(" GOT BYTES: {:02X?}", got_bytes);
 
     if want_bytes == got_bytes {
         return Ok(());
