@@ -28,16 +28,32 @@ impl Register {
             REGISTER_AL
         }
     }
+
+    pub fn find(name: &str) -> Option<Register> {
+        for reg in REGISTERS_WORD {
+            if reg.name == name {
+                return Some(reg);
+            }
+        }
+
+        for reg in REGISTERS_BYTE {
+            if reg.name == name {
+                return Some(reg);
+            }
+        }
+
+        None
+    }
 }
 
-pub const REGISTER_AL: Register = Register::new("al", 1, 0b000);
-pub const REGISTER_BL: Register = Register::new("bl", 1, 0b001);
-pub const REGISTER_CL: Register = Register::new("cl", 1, 0b010);
-pub const REGISTER_DL: Register = Register::new("dl", 1, 0b011);
-pub const REGISTER_AH: Register = Register::new("ah", 1, 0b100);
-pub const REGISTER_BH: Register = Register::new("bh", 1, 0b101);
-pub const REGISTER_CH: Register = Register::new("ch", 1, 0b110);
-pub const REGISTER_DH: Register = Register::new("dh", 1, 0b111);
+pub const REGISTER_AL: Register = Register::new("al", 1, 0);
+pub const REGISTER_BL: Register = Register::new("bl", 1, 1);
+pub const REGISTER_CL: Register = Register::new("cl", 1, 2);
+pub const REGISTER_DL: Register = Register::new("dl", 1, 3);
+pub const REGISTER_AH: Register = Register::new("ah", 1, 4);
+pub const REGISTER_BH: Register = Register::new("bh", 1, 5);
+pub const REGISTER_CH: Register = Register::new("ch", 1, 6);
+pub const REGISTER_DH: Register = Register::new("dh", 1, 7);
 
 #[rustfmt::skip]
 pub(super) const REGISTERS_BYTE: [Register; 8] = [
@@ -51,14 +67,14 @@ pub(super) const REGISTERS_BYTE: [Register; 8] = [
     REGISTER_BH,
 ];
 
-pub const REGISTER_AX: Register = Register::new("ax", 2, 0b000);
-pub const REGISTER_BX: Register = Register::new("bx", 2, 0b001);
-pub const REGISTER_CX: Register = Register::new("cx", 2, 0b010);
-pub const REGISTER_DX: Register = Register::new("dx", 2, 0b011);
-pub const REGISTER_SP: Register = Register::new("sp", 2, 0b100);
-pub const REGISTER_BP: Register = Register::new("bp", 2, 0b101);
-pub const REGISTER_SI: Register = Register::new("si", 2, 0b110);
-pub const REGISTER_DI: Register = Register::new("di", 2, 0b111);
+pub const REGISTER_AX: Register = Register::new("ax", 2, 0);
+pub const REGISTER_BX: Register = Register::new("bx", 2, 1);
+pub const REGISTER_CX: Register = Register::new("cx", 2, 2);
+pub const REGISTER_DX: Register = Register::new("dx", 2, 3);
+pub const REGISTER_SP: Register = Register::new("sp", 2, 4);
+pub const REGISTER_BP: Register = Register::new("bp", 2, 5);
+pub const REGISTER_SI: Register = Register::new("si", 2, 6);
+pub const REGISTER_DI: Register = Register::new("di", 2, 7);
 
 pub(super) const REGISTERS_WORD: [Register; 8] = [
     REGISTER_AX,

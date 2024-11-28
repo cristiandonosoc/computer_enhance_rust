@@ -42,3 +42,19 @@ fn homework3() {
         }
     }
 }
+
+#[test]
+fn homework4() {
+    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+
+    #[rustfmt::skip]
+    let listings = [
+        "listing_43.asm",
+        "listing_44.asm",
+    ];
+    for listing in listings {
+        if let Err(e) = common::simulation::run_simulation_test(listing) {
+            assert!(false, "{}", e);
+        }
+    }
+}

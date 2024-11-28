@@ -12,6 +12,13 @@ pub enum IntelError {
     InstructionOverflow,
     #[error("Unsupported operation: {0:03b}")]
     UnsupportedOperation(u8),
+
+    #[error("Unsupported operation for simulation: {0}")]
+    UnsupportedSimulationOperation(String),
+
+    #[error("Invalid Operand: {0}")]
+    InvalidOperand(String),
+
+    #[error("Unknown Register: {0}")]
+    UnknownRegister(String),
 }
-
-

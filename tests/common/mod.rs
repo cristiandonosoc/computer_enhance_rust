@@ -1,41 +1,11 @@
-use intel8086::error::IntelError;
+pub mod error;
+pub mod simulation;
+
+use error::TestError;
 use similar::{ChangeTag, TextDiff};
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use tempfile::{NamedTempFile, TempDir};
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum TestError {
-    #[error("IOError: {element}: {err}")]
-    IO {
-        element: String,
-        err: std::io::Error,
-    },
-    #[error("Environment variable {env} not found")]
-    EnvNotFound { env: String },
-    #[error("IntelError: {0}")]
-    IntelError(#[from] IntelError),
-    #[error("Program error: {stderr}\nContent:\n{content}")]
-    NasmError { stderr: String, content: String },
-}
-
-impl TestError {
-    fn not_found(element: String) -> TestError {
-        TestError::IO {
-            element,
-            err: std::io::Error::new(ErrorKind::NotFound, ""),
-        }
-    }
-
-    fn io(element: String, source: std::io::Error) -> TestError {
-        TestError::IO {
-            element,
-            err: source,
-        }
-    }
-}
 
 use computer_enhance_rust::intel8086;
 
