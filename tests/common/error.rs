@@ -15,6 +15,9 @@ pub enum TestError {
     IntelError(#[from] IntelError),
     #[error("Program error: {stderr}\nContent:\n{content}")]
     NasmError { stderr: String, content: String },
+
+    #[error("Custom Error: {0}")]
+    CustomError(String)
 }
 
 impl TestError {
@@ -29,6 +32,12 @@ impl TestError {
         TestError::IO {
             element,
             err: source,
+        }
+    }
+
+    pub(super) fn custom(msg: String) -> TestError {
+        TestError::CustomError {
+            0: msg,
         }
     }
 }
