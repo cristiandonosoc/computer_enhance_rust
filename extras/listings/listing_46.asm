@@ -19,4 +19,5 @@ sub bp, 2026
 ; bx: 0xe102
 ; cx: 0x0f01
 ; sp: 0x03e6
+; ip: 0x0018
 ; flags: PZ

@@ -28,3 +28,4 @@ mov ax, di
 ; bp: 0x0002
 ; si: 0x0003
 ; di: 0x0004
+; ip: 0x001c

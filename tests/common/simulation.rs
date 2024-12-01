@@ -20,6 +20,7 @@ pub fn run_simulation_test(listing_name: &str) -> Result<(), TestError> {
     let result = intel8086::simulate(&bytes)?;
     let got = result.cpu;
 
+
     if want == got {
         return Ok(());
     }

@@ -29,19 +29,29 @@ pub struct SimulationResult {
     pub instructions: Vec<Instruction>,
 }
 
-pub fn simulate(mut bytes: &[u8]) -> Result<SimulationResult, IntelError> {
+pub fn simulate(bytes: &[u8]) -> Result<SimulationResult, IntelError> {
     let mut cpu = CPU::new();
     let mut instructions = vec![];
 
-    while !bytes.is_empty() {
+    let mut stream = bytes;
+
+    while !stream.is_empty() {
         debug!("Decoding new instruction");
-        let instruction = Instruction::decode(bytes)?;
-        bytes = &bytes[instruction.len()..];
+        let mut instruction = Instruction::decode(stream)?;
+        instruction.address = cpu.ip_address();
 
         debug!("\n{:?}", instruction);
         cpu.simulate(&instruction)?;
 
         instructions.push(instruction);
+
+        // Determine where we should continue decoding from.
+        // If we overflow the stream, then we consider the program done.
+        let address = cpu.ip_address();
+        if address >= bytes.len() {
+            break;
+        }
+        stream = &bytes[address..];
     }
 
     let result = SimulationResult { cpu, instructions };

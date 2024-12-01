@@ -1,8 +1,12 @@
 mod common;
 
+fn evaluate_debug_logging() {
+    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+}
+
 #[test]
 fn homework1() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    evaluate_debug_logging();
 
     #[rustfmt::skip]
     let listings = [
@@ -19,9 +23,12 @@ fn homework1() {
 
 #[test]
 fn homework2() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    evaluate_debug_logging();
 
-    let listings = ["listing_39.asm"];
+    #[rustfmt::skip]
+    let listings = [
+        "listing_39.asm",
+    ];
 
     for listing in listings {
         if let Err(e) = common::run_nasm_test(listing) {
@@ -32,9 +39,12 @@ fn homework2() {
 
 #[test]
 fn homework3() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    evaluate_debug_logging();
 
-    let listings = ["listing_41.asm"];
+    #[rustfmt::skip]
+    let listings = [
+        "listing_41.asm",
+    ];
 
     for listing in listings {
         if let Err(e) = common::run_nasm_test(listing) {
@@ -45,7 +55,7 @@ fn homework3() {
 
 #[test]
 fn homework4() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    evaluate_debug_logging();
 
     #[rustfmt::skip]
     let listings = [
@@ -61,11 +71,26 @@ fn homework4() {
 
 #[test]
 fn homework5() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    evaluate_debug_logging();
 
     #[rustfmt::skip]
     let listings = [
         "listing_46.asm",
+    ];
+    for listing in listings {
+        if let Err(e) = common::simulation::run_simulation_test(listing) {
+            assert!(false, "{}", e);
+        }
+    }
+}
+
+#[test]
+fn homework6() {
+    evaluate_debug_logging();
+
+    #[rustfmt::skip]
+    let listings = [
+        "listing_48.asm",
     ];
     for listing in listings {
         if let Err(e) = common::simulation::run_simulation_test(listing) {

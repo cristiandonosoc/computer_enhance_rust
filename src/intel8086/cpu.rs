@@ -5,7 +5,7 @@ use log::debug;
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CPU {
-    registers: [u16; 8],
+    registers: [u16; 9],
     pub flags: CPUFlags,
 }
 
@@ -54,6 +54,18 @@ impl CPU {
         self.registers[7]
     }
 
+    pub fn ip(&self) -> u16 {
+        self.registers[8]
+    }
+
+    pub fn ip_address(&self) -> usize {
+        self.ip() as usize
+    }
+
+    fn set_ip(&mut self, ip: u16) {
+        self.registers[8] = ip
+    }
+
     pub fn get_register(&self, reg: &Register) -> u16 {
         self.registers[reg.reg as usize]
     }
@@ -82,6 +94,11 @@ impl CPU {
                 self.get_register(&reg)
             }
             Operand::Immediate(value) => value,
+            Operand::JumpOffset(offset) => {
+                // For jump we calculate where the ip will be.
+                let ip = (self.ip() as i32) - (offset as i32);
+                ip as u16
+            }
             _ => {
                 let value_type = std::any::type_name_of_val(&instruction.src);
                 let msg = format!("{}: {}", value_type, instruction.src);
@@ -89,25 +106,31 @@ impl CPU {
             }
         };
 
+        // Update the IP immediatelly.
+        self.set_ip(self.ip() + instruction.len as u16);
+
         let before = self.get_register(&dst);
 
-        match instruction.operation {
+        match &instruction.operation {
             Operation::Mov => {
                 self.set_register(&dst, value);
             }
             Operation::Add => {
                 let result: u16 = before + value;
                 self.set_register(&dst, result);
-                self.process_flags(result);
+                self.process_flags(result as i32);
             }
             Operation::Sub => {
-                let result: u16 = before - value;
-                self.set_register(&dst, result);
+                let result: i32 = (before as i32) - (value as i32);
+                self.set_register(&dst, result as u16);
                 self.process_flags(result);
             }
             Operation::Cmp => {
                 let result: u16 = before - value;
-                self.process_flags(result);
+                self.process_flags(result as i32);
+            }
+            Operation::Jump(jump_description) => {
+                self.process_jump(&jump_description, value);
             }
             _ => {
                 return Err(IntelError::UnsupportedSimulationOperation(
@@ -123,8 +146,68 @@ impl CPU {
         Ok(())
     }
 
-    pub fn process_flags(&mut self, value: u16) {
+    fn process_flags(&mut self, value: i32) {
         self.flags.z = value == 0;
-        self.flags.s = (value & 0x8000) == 1;
+        self.flags.s = value < 0;
+    }
+
+    fn process_jump(&mut self, jump_description: &JumpDescription, target_ip: u16) {
+        match jump_description.jump {
+            Jump::JO => todo!(),
+            Jump::JNO => todo!(),
+            Jump::JB => todo!(),
+            Jump::JNB => todo!(),
+            Jump::JE => {
+                if self.flags.z {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::JNE => {
+                if !self.flags.z {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::JBE => todo!(),
+            Jump::JNBE => todo!(),
+            Jump::JS => {
+                if self.flags.s {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::JNS => {
+                if !self.flags.s {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::JP => todo!(),
+            Jump::JNP => todo!(),
+            Jump::JL => todo!(),
+            Jump::JNL => todo!(),
+            Jump::JLE => todo!(),
+            Jump::JNLE => todo!(),
+            Jump::JCXZ => todo!(),
+            Jump::JMP => todo!(),
+            Jump::LOOPNZ => {
+                let cx = self.cx() - 1;
+                self.set_register(&REGISTER_CX, cx);
+                if cx == 0 && !self.flags.z {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::LOOPZ => {
+                let cx = self.cx() - 1;
+                self.set_register(&REGISTER_CX, cx);
+                if cx == 0 && self.flags.z {
+                    self.set_ip(target_ip)
+                }
+            }
+            Jump::LOOP => {
+                let cx = self.cx() - 1;
+                self.set_register(&REGISTER_CX, cx);
+                if cx == 0 && self.flags.z {
+                    self.set_ip(target_ip)
+                }
+            }
+        }
     }
 }

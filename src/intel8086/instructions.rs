@@ -6,6 +6,7 @@ use log::debug;
 
 #[derive(Debug, Default)]
 pub struct Instruction {
+    pub address: usize,
     pub data: [u8; 6], // Instructions are at most 6 bytes.
     pub len: u8,
 
@@ -85,16 +86,16 @@ impl Instruction {
         }
 
         // Jumps
-        for (jump_opcode, operation) in SHORT_JUMPS {
-            if peek == *jump_opcode {
-                return decode_jump(bytes, operation);
+        for jump in SHORT_JUMPS {
+            if peek == jump.opcode {
+                return decode_jump(bytes, jump);
             }
         }
 
         // Loops.
-        for (loop_opcode, operation) in LOOP_JUMPS {
-            if peek == *loop_opcode {
-                return decode_jump(bytes, operation);
+        for loop_jump in LOOP_JUMPS {
+            if peek == loop_jump.opcode {
+                return decode_jump(bytes, loop_jump);
             }
         }
 
@@ -149,7 +150,13 @@ pub enum Operation {
     Add,
     Sub,
     Cmp,
-    Jump(&'static str),
+    Jump(JumpDescription),
+}
+
+pub enum CPUFlag {
+    None,
+    Zero,
+    Sign,
 }
 
 #[derive(Debug)]
@@ -201,7 +208,7 @@ impl std::fmt::Display for Operation {
             Operation::Add => "add",
             Operation::Sub => "sub",
             Operation::Cmp => "cmp",
-            Operation::Jump(name) => name,
+            Operation::Jump(jump) => jump.name,
         };
 
         write!(f, "{}", string)
