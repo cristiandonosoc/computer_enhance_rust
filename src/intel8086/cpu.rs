@@ -202,7 +202,7 @@ impl CPU {
                 self.process_flags(result);
             }
             Operation::Cmp => {
-                let result: u16 = before - src;
+                let result: i32 = (before as i32) - (src as i32);
                 self.process_flags(result as i32);
             }
             _ => {
