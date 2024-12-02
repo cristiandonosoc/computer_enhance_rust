@@ -153,7 +153,7 @@ pub(super) fn decode_jump(bytes: &[u8], jump: &JumpDescription) -> IntelResult {
     let offset = instruction.data[1] as i8;
 
     instruction.operation = Operation::Jump(jump.clone());
-    instruction.dst = Operand::JumpOffset(offset);
+    instruction.src = Operand::JumpOffset(offset);
 
     Ok(instruction)
 }

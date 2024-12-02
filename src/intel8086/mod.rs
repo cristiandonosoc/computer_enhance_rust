@@ -7,13 +7,12 @@ pub mod registers;
 use cpu::CPU;
 use error::IntelError;
 use instructions::*;
-use log::debug;
+use log::{debug, info};
 
 pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
     let mut instructions = vec![];
 
     while !bytes.is_empty() {
-        debug!("Decoding new instruction");
         let instruction = Instruction::decode(bytes)?;
         bytes = &bytes[instruction.len()..];
 
@@ -36,11 +35,10 @@ pub fn simulate(bytes: &[u8]) -> Result<SimulationResult, IntelError> {
     let mut stream = bytes;
 
     while !stream.is_empty() {
-        debug!("Decoding new instruction");
         let mut instruction = Instruction::decode(stream)?;
         instruction.address = cpu.ip_address();
 
-        debug!("\n{:?}", instruction);
+        info!("\n{:?}", instruction);
         cpu.simulate(&instruction)?;
 
         instructions.push(instruction);

@@ -190,6 +190,10 @@ impl std::fmt::Display for Instruction {
             return write!(f, "{} {}", self.operation, self.dst);
         }
 
+        if matches!(self.operation, Operation::Jump(_)) {
+            return write!(f, "{} {}", self.operation, self.src);
+        }
+
         if !self.src.has_size() && !self.dst.has_size() {
             let size_specifier = if self.bits.w() { "word" } else { "byte" };
 

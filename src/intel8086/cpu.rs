@@ -1,7 +1,7 @@
 use super::error::*;
 use super::instructions::*;
 use super::registers::*;
-use log::debug;
+use log::{debug, info};
 
 #[derive(Debug, Default, Eq, PartialEq)]
 pub struct CPU {
@@ -17,7 +17,7 @@ pub struct CPUFlags {
 
 impl CPU {
     pub fn new() -> Self {
-        CPU {
+        CPU{
             ..Default::default()
         }
     }
@@ -75,16 +75,35 @@ impl CPU {
     }
 
     pub fn simulate(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
-        let dst: Register;
-        if let Operand::Register(r) = instruction.dst {
-            dst = r;
-        } else {
-            return Err(IntelError::UnsupportedSimulationOperation(
-                "Non register operation".to_string(),
-            ));
-        };
+        // Update the IP immediatelly.
+        self.set_ip(self.ip() + instruction.len as u16);
 
-        let value = match instruction.src {
+        match &instruction.operation {
+            Operation::Mov => {
+                return self.simulate_register_op(instruction);
+            }
+            Operation::Add => {
+                return self.simulate_register_op(instruction);
+            }
+            Operation::Sub => {
+                return self.simulate_register_op(instruction);
+            }
+            Operation::Cmp => {
+                return self.simulate_register_op(instruction);
+            }
+            Operation::Jump(jump_description) => {
+                return self.simulate_jump(instruction, &jump_description);
+            }
+            _ => {
+                return Err(IntelError::UnsupportedSimulationOperation(
+                    instruction.operation.to_string(),
+                ));
+            }
+        }
+    }
+
+    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+        let src = match instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
                 if reg.len() < 2 {
@@ -106,31 +125,26 @@ impl CPU {
             }
         };
 
-        // Update the IP immediatelly.
-        self.set_ip(self.ip() + instruction.len as u16);
-
+        let dst = get_dst_register(instruction)?;
         let before = self.get_register(&dst);
 
         match &instruction.operation {
             Operation::Mov => {
-                self.set_register(&dst, value);
+                self.set_register(&dst, src);
             }
             Operation::Add => {
-                let result: u16 = before + value;
+                let result: u16 = before + src;
                 self.set_register(&dst, result);
                 self.process_flags(result as i32);
             }
             Operation::Sub => {
-                let result: i32 = (before as i32) - (value as i32);
+                let result: i32 = (before as i32) - (src as i32);
                 self.set_register(&dst, result as u16);
                 self.process_flags(result);
             }
             Operation::Cmp => {
-                let result: u16 = before - value;
+                let result: u16 = before - src;
                 self.process_flags(result as i32);
-            }
-            Operation::Jump(jump_description) => {
-                self.process_jump(&jump_description, value);
             }
             _ => {
                 return Err(IntelError::UnsupportedSimulationOperation(
@@ -141,17 +155,35 @@ impl CPU {
 
         let after = self.get_register(&dst);
 
-        debug!("{0} {1}:0x{2:04X}->0x{3:04X}", instruction.operation, dst, before, after);
+        info!(
+            "{0} {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4}",
+            instruction.operation,
+            dst,
+            before,
+            after,
+            self.print_flags()
+        );
 
         Ok(())
     }
 
-    fn process_flags(&mut self, value: i32) {
-        self.flags.z = value == 0;
-        self.flags.s = value < 0;
-    }
+    fn simulate_jump(
+        &mut self,
+        instruction: &Instruction,
+        jump_description: &JumpDescription,
+    ) -> Result<(), IntelError> {
+        let before = self.ip();
 
-    fn process_jump(&mut self, jump_description: &JumpDescription, target_ip: u16) {
+        let src: u16;
+        if let Operand::JumpOffset(offset) = instruction.src {
+            let ip = (self.ip() as i32) + (offset as i32);
+            src = ip as u16;
+        } else {
+            return Err(IntelError::UnsupportedSimulationOperation(
+                "No JumpOffset src operand for jump instruction".to_string(),
+            ));
+        }
+
         match jump_description.jump {
             Jump::JO => todo!(),
             Jump::JNO => todo!(),
@@ -159,24 +191,24 @@ impl CPU {
             Jump::JNB => todo!(),
             Jump::JE => {
                 if self.flags.z {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::JNE => {
                 if !self.flags.z {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::JBE => todo!(),
             Jump::JNBE => todo!(),
             Jump::JS => {
                 if self.flags.s {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::JNS => {
                 if !self.flags.s {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::JP => todo!(),
@@ -191,23 +223,55 @@ impl CPU {
                 let cx = self.cx() - 1;
                 self.set_register(&REGISTER_CX, cx);
                 if cx == 0 && !self.flags.z {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::LOOPZ => {
                 let cx = self.cx() - 1;
                 self.set_register(&REGISTER_CX, cx);
                 if cx == 0 && self.flags.z {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
             Jump::LOOP => {
                 let cx = self.cx() - 1;
                 self.set_register(&REGISTER_CX, cx);
                 if cx == 0 && self.flags.z {
-                    self.set_ip(target_ip)
+                    self.set_ip(src)
                 }
             }
         }
+
+        let after = self.ip();
+
+        info!("{0} ip: 0x{1:04X}->0x{2:04X} ({1} -> {2})", instruction.operation, before, after);
+
+        Ok(())
+    }
+
+    fn process_flags(&mut self, value: i32) {
+        self.flags.z = value == 0;
+        self.flags.s = value < 0;
+    }
+
+    fn print_flags(&self) -> String {
+        let mut result = String::new();
+        if self.flags.z {
+            result.push('Z')
+        }
+        if self.flags.s {
+            result.push('S')
+        }
+        result
+    }
+}
+
+fn get_dst_register(instruction: &Instruction) -> Result<Register, IntelError> {
+    if let Operand::Register(r) = instruction.dst {
+        return Ok(r);
+    } else {
+        return Err(IntelError::UnsupportedSimulationOperation(
+            "Non register operation".to_string(),
+        ));
     }
 }

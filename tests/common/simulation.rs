@@ -62,7 +62,7 @@ fn extract_result(filepath: impl AsRef<Path>) -> Result<CPU, TestError> {
                     // Extract hex value (0xNNNN)
                     let regval = u16::from_str_radix(&value[2..], 16)
                         .map_err(|e| TestError::custom(e.to_string()))?;
-                    debug!("setting register {} to {}", reg, regval);
+                    debug!("setting test register {0} to 0x{1:04X} ({1})", reg, regval);
                     cpu.set_register(&reg, regval);
                     continue;
                 }

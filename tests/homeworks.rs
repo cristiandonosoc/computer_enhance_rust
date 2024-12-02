@@ -1,7 +1,9 @@
 mod common;
 
 fn evaluate_debug_logging() {
-    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("debug")).init();
+    // let filter = "info";
+    // let filter = "debug";
+    // env_logger::Builder::from_env(env_logger::Env::default().default_filter_or(filter)).init();
 }
 
 #[test]
@@ -90,7 +92,8 @@ fn homework6() {
 
     #[rustfmt::skip]
     let listings = [
-        "listing_48.asm",
+        // "listing_48.asm",
+        "listing_49.asm",
     ];
     for listing in listings {
         if let Err(e) = common::simulation::run_simulation_test(listing) {
