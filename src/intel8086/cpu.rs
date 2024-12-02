@@ -1,11 +1,12 @@
 use super::error::*;
 use super::instructions::*;
 use super::registers::*;
-use log::{debug, info};
+use log::*;
 
-#[derive(Debug, Default, Eq, PartialEq)]
+#[derive(Default, Eq)]
 pub struct CPU {
     registers: [u16; 9],
+    memory: Vec<u8>,
     pub flags: CPUFlags,
 }
 
@@ -17,7 +18,8 @@ pub struct CPUFlags {
 
 impl CPU {
     pub fn new() -> Self {
-        CPU{
+        CPU {
+            memory: vec![0; 2 << 20],
             ..Default::default()
         }
     }
@@ -80,7 +82,7 @@ impl CPU {
 
         match &instruction.operation {
             Operation::Mov => {
-                return self.simulate_register_op(instruction);
+                return self.simulate_mov(instruction);
             }
             Operation::Add => {
                 return self.simulate_register_op(instruction);
@@ -102,8 +104,8 @@ impl CPU {
         }
     }
 
-    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
-        let src = match instruction.src {
+    fn simulate_mov(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+        let src = match &instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
                 if reg.len() < 2 {
@@ -112,11 +114,68 @@ impl CPU {
 
                 self.get_register(&reg)
             }
-            Operand::Immediate(value) => value,
-            Operand::JumpOffset(offset) => {
-                // For jump we calculate where the ip will be.
-                let ip = (self.ip() as i32) - (offset as i32);
-                ip as u16
+            Operand::Immediate(value) => *value,
+            Operand::EAC(eac) => {
+                let (_, value) = self.resolve_eac(&eac);
+                value
+            }
+            _ => {
+                let value_type = std::any::type_name_of_val(&instruction.src);
+                let msg = format!("{}: {}", value_type, instruction.src);
+                return Err(IntelError::InvalidOperand(msg));
+            }
+        };
+
+        let (before, dst_str, after) = match &instruction.dst {
+            Operand::Register(reg) => {
+                // For now we support only big registers.
+                if reg.len() < 2 {
+                    return Err(IntelError::InvalidOperand(reg.to_string()));
+                }
+
+                let before = self.get_register(&reg);
+                self.set_register(&reg, src);
+                (before, reg.name.to_string(), src)
+            }
+            Operand::EAC(eac) => {
+                let (address, before) = self.resolve_eac(&eac);
+
+                self.storeu16(address as usize, src);
+                let dst_str = format!("address: {}", printu16(address));
+                (before, dst_str, src)
+            }
+            _ => {
+                let value_type = std::any::type_name_of_val(&instruction.src);
+                let msg = format!("{}: {}", value_type, instruction.src);
+                return Err(IntelError::InvalidOperand(msg));
+            }
+        };
+
+        info!(
+            "\"{0}\" dst: {1}, {2} -> {3}",
+            instruction,
+            dst_str,
+            printu16(before),
+            printu16(after)
+        );
+
+        Ok(())
+    }
+
+    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+        let src = match &instruction.src {
+            Operand::Register(reg) => {
+                // For now we support only big registers.
+                if reg.len() < 2 {
+                    return Err(IntelError::InvalidOperand(reg.to_string()));
+                }
+
+                self.get_register(&reg)
+            }
+            Operand::Immediate(value) => *value,
+            Operand::EAC(eac) => {
+                let (_, value) = self.resolve_eac(&eac);
+                value
             }
             _ => {
                 let value_type = std::any::type_name_of_val(&instruction.src);
@@ -264,6 +323,52 @@ impl CPU {
         }
         result
     }
+
+    // Returns the resolved address and value.
+    // In the case of DirectAccess, the address is 0.
+    fn resolve_eac(&self, eac: &EAC) -> (u16, u16) {
+        let address = match eac {
+            EAC::BxSi(offset) => self.bx() + self.si() + offset,
+            EAC::BxDi(offset) => self.bx() + self.di() + offset,
+            EAC::BpSi(offset) => self.bp() + self.si() + offset,
+            EAC::BpDi(offset) => self.bp() + self.di() + offset,
+            EAC::Si(offset) => self.si() + offset,
+            EAC::Di(offset) => self.di() + offset,
+            EAC::Bp(offset) => self.bp() + offset,
+            EAC::Bx(offset) => self.bx() + offset,
+            EAC::DirectAccess(address) => *address,
+        };
+
+        (address, self.loadu16(address as usize))
+    }
+
+    fn loadu16(&self, address: usize) -> u16 {
+        let b1 = self.memory[address] as u16;
+        let b2 = (self.memory[address + 1] as u16) << 8;
+        b1 | b2
+    }
+
+    fn storeu16(&mut self, address: usize, value: u16) {
+        let b1: u8 = value as u8;
+        let b2: u8 = (value >> 8) as u8;
+        self.memory[address] = b1;
+        self.memory[address + 1] = b2;
+    }
+}
+
+impl PartialEq for CPU {
+    fn eq(&self, other: &Self) -> bool {
+        if self.registers != other.registers {
+            return false;
+        }
+
+        if self.flags != other.flags {
+            return false;
+        }
+
+        // We don't compare memory.
+        return true;
+    }
 }
 
 fn get_dst_register(instruction: &Instruction) -> Result<Register, IntelError> {
@@ -274,4 +379,25 @@ fn get_dst_register(instruction: &Instruction) -> Result<Register, IntelError> {
             "Non register operation".to_string(),
         ));
     }
+}
+
+impl std::fmt::Debug for CPU {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CPU")
+            .field("ax", &printu16(self.ax()))
+            .field("cx", &printu16(self.cx()))
+            .field("dx", &printu16(self.dx()))
+            .field("bx", &printu16(self.bx()))
+            .field("sp", &printu16(self.sp()))
+            .field("bp", &printu16(self.bp()))
+            .field("si", &printu16(self.si()))
+            .field("di", &printu16(self.di()))
+            .field("ip", &printu16(self.ip()))
+            .field("flags", &self.print_flags())
+            .finish()
+    }
+}
+
+fn printu16(value: u16) -> String {
+    format!("0x{0:04X} ({0})", value)
 }

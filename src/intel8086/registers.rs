@@ -74,9 +74,9 @@ pub(super) const REGISTERS_BYTE: [Register; 8] = [
 ];
 
 pub const REGISTER_AX: Register = Register::new("ax", 2, 0);
-pub const REGISTER_BX: Register = Register::new("bx", 2, 1);
-pub const REGISTER_CX: Register = Register::new("cx", 2, 2);
-pub const REGISTER_DX: Register = Register::new("dx", 2, 3);
+pub const REGISTER_CX: Register = Register::new("cx", 2, 1);
+pub const REGISTER_DX: Register = Register::new("dx", 2, 2);
+pub const REGISTER_BX: Register = Register::new("bx", 2, 3);
 pub const REGISTER_SP: Register = Register::new("sp", 2, 4);
 pub const REGISTER_BP: Register = Register::new("bp", 2, 5);
 pub const REGISTER_SI: Register = Register::new("si", 2, 6);

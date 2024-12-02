@@ -61,7 +61,9 @@ pub(super) fn decode_immediate_to_register_memory(
     instruction.consume(bytes, 2)?;
 
     instruction.bits.set_w((instruction.data[0] & 0b1) != 0);
-    instruction.bits.set_s((instruction.data[0] & 0b10) != 0);
+    if !matches!(operation, Operation::Mov) {
+        instruction.bits.set_s((instruction.data[0] & 0b10) != 0);
+    }
     instruction.bits.set_vmod((instruction.data[1] >> 6) & 0b11);
     instruction.bits.set_rm(instruction.data[1] & 0b111);
 
@@ -184,7 +186,7 @@ fn consume_displacement(
         0b01 => {
             instruction.consume(bytes, 1)?;
 
-            let offset = instruction.lastu8() as u16;
+            let offset = sign_extend(instruction.lastu8());
             let eac = EAC::new(instruction.bits.rm(), vmod, offset);
             let operand = Operand::EAC(eac);
             return Ok(operand);
@@ -220,13 +222,7 @@ fn consume_immediate(bytes: &[u8], instruction: &mut Instruction) -> Result<Oper
     // or actually get 2 bytes.
     if instruction.bits.s() {
         instruction.consume(bytes, 1)?;
-
-        // If the higher bit is 1, we need to sign extend.
-        let mut value = instruction.lastu8() as u16;
-        if (value & 0b1000_0000) != 0 {
-            value = value | (0xFF << 8);
-        }
-
+        let value = sign_extend(instruction.lastu8());
         return Ok(Operand::Immediate(value));
     }
 
@@ -245,4 +241,12 @@ fn decode_op(op: u8) -> Result<Operation, IntelError> {
         0b111 => Ok(Operation::Cmp),
         _ => Err(IntelError::UnsupportedOperation(op)),
     }
+}
+
+fn sign_extend(byte: u8) -> u16 {
+    let mut value = byte as u16;
+    if (value & 0b1000_0000) != 0 {
+        value = value | (0xFF << 8);
+    }
+    value
 }
