@@ -19,7 +19,7 @@ pub struct CPUFlags {
 impl CPU {
     pub fn new() -> Self {
         CPU {
-            memory: vec![0; 2 << 20],
+            memory: vec![0; 1024 * 1024],
             ..Default::default()
         }
     }

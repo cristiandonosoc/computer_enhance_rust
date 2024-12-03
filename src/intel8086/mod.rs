@@ -7,7 +7,7 @@ pub mod registers;
 use cpu::*;
 use error::IntelError;
 use instructions::*;
-use log::{debug, info};
+use log::debug;
 
 pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
     let mut instructions = vec![];
@@ -36,7 +36,6 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
 
     let mut executed_instructions = vec![];
 
-
     loop {
         let address = cpu.ip_address();
 
@@ -57,15 +56,16 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
         let instruction = Instruction::decode(bytestream)?;
         debug!("\n{:?}", instruction);
 
-
         // Simulate the instruction into the cpu.
         cpu.simulate(&instruction)?;
-
 
         executed_instructions.push(instruction);
     }
 
-    let result = SimulationResult { cpu, executed_instructions };
+    let result = SimulationResult {
+        cpu,
+        executed_instructions,
+    };
 
     Ok(result)
 }

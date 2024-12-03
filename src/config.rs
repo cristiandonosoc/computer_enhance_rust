@@ -5,11 +5,14 @@ pub use clap::Parser;
 pub struct Args {
     pub input: String,
 
-    #[arg(short, long)]
+    #[arg(long)]
     pub debug: bool,
 
     #[arg(long)]
     pub dump: bool,
+
+    #[arg(long)]
+    pub silent: bool
 }
 
 
