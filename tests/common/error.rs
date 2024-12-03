@@ -9,12 +9,8 @@ pub enum TestError {
         element: String,
         err: std::io::Error,
     },
-    #[error("Environment variable {env} not found")]
-    EnvNotFound { env: String },
     #[error("IntelError: {0}")]
     IntelError(#[from] IntelError),
-    #[error("Program error: {stderr}\nContent:\n{content}")]
-    NasmError { stderr: String, content: String },
 
     #[error("Custom Error: {0}")]
     CustomError(String)

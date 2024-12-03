@@ -4,7 +4,7 @@ pub mod error;
 pub mod instructions;
 pub mod registers;
 
-use cpu::CPU;
+use cpu::*;
 use error::IntelError;
 use instructions::*;
 use log::{debug, info};
@@ -45,6 +45,8 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
             break;
         }
 
+        debug!("Decoding at {}", printu16(address as u16));
+
         // Get the current bytestream for the instruction to decode.
         let bytestream = &cpu.get_memory()[address..];
         if bytestream.is_empty() {
@@ -53,7 +55,7 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
 
         // Decode the instruction.
         let instruction = Instruction::decode(bytestream)?;
-        info!("\n{:?}", instruction);
+        debug!("\n{:?}", instruction);
 
 
         // Simulate the instruction into the cpu.

@@ -89,7 +89,6 @@ impl CPU {
         &self.memory
     }
 
-
     pub fn simulate(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
         // Update the IP immediatelly.
         self.set_ip(self.ip() + instruction.len as u16);
@@ -167,7 +166,7 @@ impl CPU {
 
         info!(
             "\"{0}\" dst: {1}, {2} -> {3}",
-            instruction,
+            right_pad(instruction, ' ', PAD_AMOUNT),
             dst_str,
             printu16(before),
             printu16(after)
@@ -229,8 +228,8 @@ impl CPU {
         let after = self.get_register(&dst);
 
         info!(
-            "{0} {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4}",
-            instruction.operation,
+            "\"{0}\" {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4}",
+            right_pad(instruction, ' ', PAD_AMOUNT),
             dst,
             before,
             after,
@@ -317,7 +316,12 @@ impl CPU {
 
         let after = self.ip();
 
-        info!("{0} ip: 0x{1:04X}->0x{2:04X} ({1} -> {2})", instruction.operation, before, after);
+        info!(
+            "\"{0}\" ip: 0x{1:04X}->0x{2:04X} ({1} -> {2})",
+            right_pad(instruction, ' ', PAD_AMOUNT),
+            before,
+            after
+        );
 
         Ok(())
     }
@@ -412,6 +416,17 @@ impl std::fmt::Debug for CPU {
     }
 }
 
-fn printu16(value: u16) -> String {
+pub fn printu16(value: u16) -> String {
     format!("0x{0:04X} ({0})", value)
 }
+
+fn right_pad(value: impl std::fmt::Display, pad: char, width: usize) -> String {
+    value
+        .to_string()
+        .chars()
+        .chain(std::iter::repeat(pad))
+        .take(width)
+        .collect::<String>()
+}
+
+const PAD_AMOUNT: usize = 30;

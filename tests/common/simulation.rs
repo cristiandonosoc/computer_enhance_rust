@@ -14,7 +14,8 @@ pub fn run_simulation_test(listing_name: &str) -> Result<(), TestError> {
 
     let want = extract_result(&listing)?;
 
-    let bytes = run_nasm(temp_dir.path(), &listing)?;
+    let bytes = run_nasm(temp_dir.path(), &listing)
+        .map_err(|e| TestError::io(listing.display().to_string(), e))?;
     println!("BYTES: {:02X?}", bytes);
 
     let result = intel8086::simulate(&bytes)?;

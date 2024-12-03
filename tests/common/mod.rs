@@ -1,11 +1,11 @@
 pub mod error;
 pub mod simulation;
 
+use computer_enhance_rust::nasm::*;
 use error::TestError;
 use similar::{ChangeTag, TextDiff};
 use std::path::{Path, PathBuf};
-use std::process::Command;
-use tempfile::{NamedTempFile, TempDir};
+use tempfile::TempDir;
 
 use computer_enhance_rust::intel8086;
 
@@ -16,7 +16,8 @@ pub fn run_nasm_test(listing_name: &str) -> Result<(), TestError> {
     // Run nasm on the input file.
     let listing = find_listing(listing_name)?;
 
-    let want_bytes = run_nasm(temp_dir.path(), &listing)?;
+    let want_bytes = run_nasm(temp_dir.path(), &listing)
+        .map_err(|e| TestError::io(listing.display().to_string(), e))?;
     println!("WANT BYTES: {:02X?}", want_bytes);
 
     let got_instructions = intel8086::disassemble(&want_bytes)?;
@@ -28,7 +29,8 @@ pub fn run_nasm_test(listing_name: &str) -> Result<(), TestError> {
         .map_err(|e| TestError::io(temp_asm_file.display().to_string(), e))?;
 
     // Read the asm file and they should be the same.
-    let got_bytes = run_nasm(temp_dir.path(), temp_asm_file)?;
+    let got_bytes = run_nasm(temp_dir.path(), temp_asm_file)
+        .map_err(|e| TestError::io("nasm".to_string(), e))?;
     println!(" GOT BYTES: {:02X?}", got_bytes);
 
     if want_bytes == got_bytes {
@@ -55,49 +57,13 @@ pub fn run_nasm_test(listing_name: &str) -> Result<(), TestError> {
     return Ok(());
 }
 
-fn run_nasm(output_dir: &Path, filepath: impl AsRef<Path>) -> Result<Vec<u8>, TestError> {
-    let cargo_root = get_cargo_root()?;
-    let nasm = cargo_root.join("extras").join("nasm").join("nasm.exe");
-
-    let temp_file = NamedTempFile::new_in(output_dir)
-        .map_err(|e| TestError::io(output_dir.display().to_string(), e))?;
-
-    let output = Command::new(nasm)
-        .args(["-o", temp_file.path().to_str().unwrap()])
-        .arg(filepath.as_ref().as_os_str())
-        .output()
-        .map_err(|e| TestError::io(filepath.as_ref().display().to_string(), e))?;
-
-    if !output.status.success() {
-        let content = std::fs::read_to_string(&filepath)
-            .map_err(|e| TestError::io(filepath.as_ref().display().to_string(), e))?;
-
-        return Err(TestError::NasmError {
-            stderr: String::from_utf8(output.stderr).unwrap(),
-            content,
-        });
-    }
-
-    let bytes = std::fs::read(&temp_file)
-        .map_err(|e| TestError::io(temp_file.path().display().to_string(), e))?;
-    Ok(bytes)
-}
-
 fn find_listing(listing: &str) -> Result<PathBuf, TestError> {
-    let mut path = get_cargo_root()?;
+    let mut path = get_cargo_root().map_err(|e| TestError::io("cargo".to_string(), e))?;
     path = path.join("extras/listings").join(listing);
     if !path.exists() {
         return Err(TestError::not_found(path.display().to_string()));
     }
     Ok(path)
-}
-
-fn get_cargo_root() -> Result<PathBuf, TestError> {
-    const ENV_NAME: &str = "CARGO_MANIFEST_DIR";
-    let cargo_env = std::env::var(ENV_NAME).map_err(|_| TestError::EnvNotFound {
-        env: ENV_NAME.to_string(),
-    })?;
-    Ok(PathBuf::from(cargo_env))
 }
 
 // Poor man's clean: Cleaning a file means removing empty lines and comments.
