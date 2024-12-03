@@ -25,34 +25,45 @@ pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
 
 pub struct SimulationResult {
     pub cpu: CPU,
-    pub instructions: Vec<Instruction>,
+    pub executed_instructions: Vec<Instruction>,
 }
 
-pub fn simulate(bytes: &[u8]) -> Result<SimulationResult, IntelError> {
+pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
     let mut cpu = CPU::new();
-    let mut instructions = vec![];
 
-    let mut stream = bytes;
+    // We copy the input bytes into the cpu memory.
+    cpu.set_program(program)?;
 
-    while !stream.is_empty() {
-        let mut instruction = Instruction::decode(stream)?;
-        instruction.address = cpu.ip_address();
+    let mut executed_instructions = vec![];
 
-        info!("\n{:?}", instruction);
-        cpu.simulate(&instruction)?;
 
-        instructions.push(instruction);
-
-        // Determine where we should continue decoding from.
-        // If we overflow the stream, then we consider the program done.
+    loop {
         let address = cpu.ip_address();
-        if address >= bytes.len() {
+
+        // For now we simulate until the IP is out of the original program bounds.
+        if address >= program.len() {
             break;
         }
-        stream = &bytes[address..];
+
+        // Get the current bytestream for the instruction to decode.
+        let bytestream = &cpu.get_memory()[address..];
+        if bytestream.is_empty() {
+            panic!();
+        }
+
+        // Decode the instruction.
+        let instruction = Instruction::decode(bytestream)?;
+        info!("\n{:?}", instruction);
+
+
+        // Simulate the instruction into the cpu.
+        cpu.simulate(&instruction)?;
+
+
+        executed_instructions.push(instruction);
     }
 
-    let result = SimulationResult { cpu, instructions };
+    let result = SimulationResult { cpu, executed_instructions };
 
     Ok(result)
 }

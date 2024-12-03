@@ -76,6 +76,20 @@ impl CPU {
         self.registers[reg.reg as usize] = value
     }
 
+    pub fn set_program(&mut self, program: &[u8]) -> Result<(), IntelError> {
+        if program.len() >= self.memory.len() {
+            return Err(IntelError::ProgramTooBig(program.len(), self.memory.len()));
+        }
+
+        self.memory[..program.len()].copy_from_slice(program);
+        Ok(())
+    }
+
+    pub fn get_memory(&self) -> &[u8] {
+        &self.memory
+    }
+
+
     pub fn simulate(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
         // Update the IP immediatelly.
         self.set_ip(self.ip() + instruction.len as u16);
