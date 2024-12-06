@@ -99,13 +99,13 @@ impl CPU {
                 return self.simulate_mov(instruction);
             }
             Operation::Add => {
-                return self.simulate_register_op(instruction);
+                return self.simulate_op(instruction);
             }
             Operation::Sub => {
-                return self.simulate_register_op(instruction);
+                return self.simulate_op(instruction);
             }
             Operation::Cmp => {
-                return self.simulate_register_op(instruction);
+                return self.simulate_op(instruction);
             }
             Operation::Jump(jump_description) => {
                 return self.simulate_jump(instruction, &jump_description);
@@ -120,11 +120,6 @@ impl CPU {
 
     fn simulate_mov(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
         // We simulate the cycles before changing anything.
-        let mut cycles: usize = 0xFFFFFFFFF;
-        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
-            cycles = c;
-        }
-
         let src = match &instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
@@ -171,25 +166,27 @@ impl CPU {
             }
         };
 
+        let mut cycles = 0xFFFFFFF;
+        let mut cycles_explanation: String = "".to_string();
+        if let Ok((c, e)) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+            cycles_explanation = e;
+        }
+
         info!(
-            "\"{0}\" dst: {1}, {2} -> {3} (cycles: {4})",
+            "\"{0}\" dst: {1}, {2} -> {3} (cycles: {4}, ({5}))",
             right_pad(instruction, ' ', PAD_AMOUNT),
             dst_str,
             printu16(before),
             printu16(after),
             cycles,
+            cycles_explanation,
         );
 
         Ok(cycles)
     }
 
-    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
-        // We simulate the cycles before changing anything.
-        let mut cycles: usize = 0xFFFFFFFFF;
-        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
-            cycles = c;
-        }
-
+    fn simulate_op(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
         let src = match &instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
@@ -211,44 +208,91 @@ impl CPU {
             }
         };
 
-        let dst = get_dst_register(instruction)?;
-        let before = self.get_register(&dst);
+        let (before, dst_str, after) = match &instruction.dst {
+            Operand::Register(dst) => {
+                let before = self.get_register(&dst);
 
-        match &instruction.operation {
-            Operation::Mov => {
-                self.set_register(&dst, src);
+                let result = match &instruction.operation {
+                    Operation::Add => {
+                        let result: u16 = before + src;
+                        self.set_register(&dst, result);
+                        self.process_flags(result as i32);
+                        result
+                    }
+                    Operation::Sub => {
+                        let result: i32 = (before as i32) - (src as i32);
+                        self.set_register(&dst, result as u16);
+                        self.process_flags(result);
+                        result as u16
+                    }
+                    Operation::Cmp => {
+                        let result: i32 = (before as i32) - (src as i32);
+                        self.process_flags(result as i32);
+                        0
+                    }
+                    _ => {
+                        return Err(IntelError::UnsupportedSimulationOperation(
+                            instruction.operation.to_string(),
+                        ));
+                    }
+                };
+
+                (before, dst.to_string(), result)
             }
-            Operation::Add => {
-                let result: u16 = before + src;
-                self.set_register(&dst, result);
-                self.process_flags(result as i32);
-            }
-            Operation::Sub => {
-                let result: i32 = (before as i32) - (src as i32);
-                self.set_register(&dst, result as u16);
-                self.process_flags(result);
-            }
-            Operation::Cmp => {
-                let result: i32 = (before as i32) - (src as i32);
-                self.process_flags(result as i32);
+            Operand::EAC(eac) => {
+                let (address, before) = self.resolve_eac(&eac);
+                let dst_str = format!("address: {}", printu16(address));
+
+                let result = match &instruction.operation {
+                    Operation::Add => {
+                        let result: u16 = before + src;
+                        self.storeu16(address as usize, result);
+                        self.process_flags(result as i32);
+                        result
+                    }
+                    Operation::Sub => {
+                        let result: i32 = (before as i32) - (src as i32);
+                        self.storeu16(address as usize, result as u16);
+                        self.process_flags(result);
+                        result as u16
+                    }
+                    Operation::Cmp => {
+                        let result: i32 = (before as i32) - (src as i32);
+                        self.process_flags(result as i32);
+                        0
+                    }
+                    _ => {
+                        return Err(IntelError::UnsupportedSimulationOperation(
+                            instruction.operation.to_string(),
+                        ));
+                    }
+                };
+
+                (before, dst_str, result)
             }
             _ => {
-                return Err(IntelError::UnsupportedSimulationOperation(
-                    instruction.operation.to_string(),
-                ));
+                let value_type = std::any::type_name_of_val(&instruction.src);
+                let msg = format!("{}: {}", value_type, instruction.src);
+                return Err(IntelError::InvalidOperand(msg));
             }
+        };
+
+        let mut cycles = 0xFFFFFFF;
+        let mut cycles_explanation: String = "".to_string();
+        if let Ok((c, e)) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+            cycles_explanation = e;
         }
 
-        let after = self.get_register(&dst);
-
         info!(
-            "\"{0}\" {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4} (cycles: {5})",
+            "\"{0}\" {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4} (cycles: {5} ({6}))",
             right_pad(instruction, ' ', PAD_AMOUNT),
-            dst,
+            dst_str,
             before,
             after,
             self.print_flags(),
             cycles,
+            cycles_explanation,
         );
 
         Ok(cycles)
@@ -259,12 +303,6 @@ impl CPU {
         instruction: &Instruction,
         jump_description: &JumpDescription,
     ) -> Result<usize, IntelError> {
-        // We simulate the cycles before changing anything.
-        let mut cycles: usize = 0xFFFFFFFFF;
-        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
-            cycles = c;
-        }
-
         let before = self.ip();
 
         let src: u16;
@@ -337,12 +375,20 @@ impl CPU {
 
         let after = self.ip();
 
+        let mut cycles = 0xFFFFFFF;
+        let mut cycles_explanation: String = "".to_string();
+        if let Ok((c, e)) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+            cycles_explanation = e;
+        }
+
         info!(
-            "\"{0}\" ip: 0x{1:04X}->0x{2:04X} ({1} -> {2}) (cycles: {3})",
+            "\"{0}\" ip: 0x{1:04X}->0x{2:04X} ({1} -> {2}) (cycles: {3} ({4}))",
             right_pad(instruction, ' ', PAD_AMOUNT),
             before,
             after,
             cycles,
+            cycles_explanation,
         );
 
         Ok(cycles)
@@ -385,7 +431,7 @@ impl CPU {
     fn determine_instruction_cycle_cost(
         &self,
         instruction: &Instruction,
-    ) -> Result<usize, IntelError> {
+    ) -> Result<(usize, String), IntelError> {
         let map = COST_MAP.lock().unwrap();
         let instruction_costs = map
             .get(&instruction.operation)
@@ -393,12 +439,15 @@ impl CPU {
 
         let mut total_cost: usize = 0;
 
+        let mut explanation: String = "".to_string();
+
         for instruction_cost in instruction_costs {
             if !instruction_cost.matches(instruction) {
                 continue;
             }
 
             total_cost += instruction_cost.base_cost as usize;
+            explanation.push_str(&format!("BASE({})", instruction_cost.base_cost));
 
             if instruction_cost.transfers > 0 {
                 // Get the EAC.
@@ -415,17 +464,21 @@ impl CPU {
                 // If so, we have to add 4 cycles per transfer.
                 let (address, _) = self.resolve_eac(eac);
                 if is_odd(address) {
-                    total_cost += 4 * instruction_cost.transfers as usize;
+                    let transfer_cost = 4 * instruction_cost.transfers as usize;
+                    total_cost += transfer_cost;
+                    explanation.push_str(&format!(" + TRANSFER({})", transfer_cost));
                 }
 
                 // Check if this instruction has a cost associated with EAC.
                 if instruction_cost.eac_cost {
-                    total_cost = resolve_eac_cost(eac);
+                    let eac_cost = resolve_eac_cost(eac);
+                    total_cost += eac_cost;
+                    explanation.push_str(&format!(" + EA({})", eac_cost));
                 }
             }
         }
 
-        Ok(total_cost)
+        Ok((total_cost, explanation))
     }
 
     fn loadu16(&self, address: usize) -> u16 {
@@ -454,16 +507,6 @@ impl PartialEq for CPU {
 
         // We don't compare memory.
         return true;
-    }
-}
-
-fn get_dst_register(instruction: &Instruction) -> Result<Register, IntelError> {
-    if let Operand::Register(r) = instruction.dst {
-        return Ok(r);
-    } else {
-        return Err(IntelError::UnsupportedSimulationOperation(
-            "Non register operation".to_string(),
-        ));
     }
 }
 

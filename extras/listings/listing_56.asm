@@ -35,5 +35,4 @@ add dx, 50
 ; si: 0x0bb8
 ; di: 0x0fa0
 ; ip: 0x0037
-; flags: PZ
 ; cycles: 192

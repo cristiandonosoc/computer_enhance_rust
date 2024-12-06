@@ -136,11 +136,6 @@ pub(super) static COST_MAP: Lazy<Mutex<HashMap<Operation, Vec<InstructionCost>>>
             ],
         );
 
-        map.insert(
-            Operation::Jump(())
-
-        );
-
         Mutex::new(map)
     });
 

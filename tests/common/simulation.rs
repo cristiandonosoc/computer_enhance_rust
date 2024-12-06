@@ -32,8 +32,8 @@ pub fn run_simulation_test(listing_name: &str) -> Result<(), TestError> {
         let got_cycles = result.cycles;
         if want_cycles != got_cycles {
             println!("Wrong cycles result");
-            println!("Want:\n{:?}", want_cpu);
-            println!(" Got:\n{:?}", got_cpu);
+            println!("Want:\n{:?}", want_cycles);
+            println!(" Got:\n{:?}", got_cycles);
             return Err(TestError::WrongResult {});
         }
     }
@@ -83,7 +83,7 @@ fn extract_result(filepath: impl AsRef<Path>) -> Result<(CPU, usize), TestError>
                 }
 
                 if pattern == "cycles" {
-                    cycles = usize::from_str_radix(&value[2..], 10)
+                    cycles = usize::from_str_radix(&value, 10)
                         .map_err(|e| TestError::custom(e.to_string()))?;
                     continue;
                 }
