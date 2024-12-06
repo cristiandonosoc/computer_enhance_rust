@@ -4,7 +4,7 @@ use super::registers::*;
 use bitfield_struct::bitfield;
 use log::debug;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Instruction {
     pub address: usize,
     pub data: [u8; 6], // Instructions are at most 6 bytes.
@@ -143,7 +143,7 @@ impl Instruction {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Operation {
     Invalid,
     Mov,
@@ -159,7 +159,7 @@ pub enum CPUFlag {
     Sign,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Operand {
     Invalid,
     Register(Register),

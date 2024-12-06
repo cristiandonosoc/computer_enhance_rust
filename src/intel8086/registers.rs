@@ -1,4 +1,4 @@
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub struct Register {
     pub name: &'static str,
     pub size: u8,
@@ -98,7 +98,7 @@ pub const REGISTER_IP: Register = Register::new("ip", 2, 8);
 pub(super) const EXTRA_REGISTERS: [Register; 1] = [REGISTER_IP];
 
 // Represents the Effective Address Calculation plus any optional offset.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EAC {
     BxSi(u16),
     BxDi(u16),
@@ -150,7 +150,7 @@ impl std::fmt::Display for EAC {
 
 // Operations --------------------------------------------------------------------------------------
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Jump {
     JO,
     JNO,
@@ -176,7 +176,7 @@ pub enum Jump {
     LOOP,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct JumpDescription {
     pub opcode: u8,
     pub jump: Jump,

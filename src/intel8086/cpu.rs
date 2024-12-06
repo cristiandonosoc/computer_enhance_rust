@@ -1,6 +1,7 @@
 use super::error::*;
 use super::instructions::*;
 use super::registers::*;
+use super::tables::*;
 use log::*;
 
 #[derive(Default, Eq)]
@@ -89,7 +90,7 @@ impl CPU {
         &self.memory
     }
 
-    pub fn simulate(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+    pub fn simulate(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
         // Update the IP immediatelly.
         self.set_ip(self.ip() + instruction.len as u16);
 
@@ -117,7 +118,13 @@ impl CPU {
         }
     }
 
-    fn simulate_mov(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+    fn simulate_mov(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
+        // We simulate the cycles before changing anything.
+        let mut cycles: usize = 0xFFFFFFFFF;
+        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+        }
+
         let src = match &instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
@@ -165,17 +172,24 @@ impl CPU {
         };
 
         info!(
-            "\"{0}\" dst: {1}, {2} -> {3}",
+            "\"{0}\" dst: {1}, {2} -> {3} (cycles: {4})",
             right_pad(instruction, ' ', PAD_AMOUNT),
             dst_str,
             printu16(before),
-            printu16(after)
+            printu16(after),
+            cycles,
         );
 
-        Ok(())
+        Ok(cycles)
     }
 
-    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<(), IntelError> {
+    fn simulate_register_op(&mut self, instruction: &Instruction) -> Result<usize, IntelError> {
+        // We simulate the cycles before changing anything.
+        let mut cycles: usize = 0xFFFFFFFFF;
+        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+        }
+
         let src = match &instruction.src {
             Operand::Register(reg) => {
                 // For now we support only big registers.
@@ -228,22 +242,29 @@ impl CPU {
         let after = self.get_register(&dst);
 
         info!(
-            "\"{0}\" {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4}",
+            "\"{0}\" {1}:0x{2:04X}->0x{3:04X} ({2} -> {3}) - flags: {4} (cycles: {5})",
             right_pad(instruction, ' ', PAD_AMOUNT),
             dst,
             before,
             after,
-            self.print_flags()
+            self.print_flags(),
+            cycles,
         );
 
-        Ok(())
+        Ok(cycles)
     }
 
     fn simulate_jump(
         &mut self,
         instruction: &Instruction,
         jump_description: &JumpDescription,
-    ) -> Result<(), IntelError> {
+    ) -> Result<usize, IntelError> {
+        // We simulate the cycles before changing anything.
+        let mut cycles: usize = 0xFFFFFFFFF;
+        if let Ok(c) = self.determine_instruction_cycle_cost(instruction) {
+            cycles = c;
+        }
+
         let before = self.ip();
 
         let src: u16;
@@ -317,13 +338,14 @@ impl CPU {
         let after = self.ip();
 
         info!(
-            "\"{0}\" ip: 0x{1:04X}->0x{2:04X} ({1} -> {2})",
+            "\"{0}\" ip: 0x{1:04X}->0x{2:04X} ({1} -> {2}) (cycles: {3})",
             right_pad(instruction, ' ', PAD_AMOUNT),
             before,
-            after
+            after,
+            cycles,
         );
 
-        Ok(())
+        Ok(cycles)
     }
 
     fn process_flags(&mut self, value: i32) {
@@ -358,6 +380,52 @@ impl CPU {
         };
 
         (address, self.loadu16(address as usize))
+    }
+
+    fn determine_instruction_cycle_cost(
+        &self,
+        instruction: &Instruction,
+    ) -> Result<usize, IntelError> {
+        let map = COST_MAP.lock().unwrap();
+        let instruction_costs = map
+            .get(&instruction.operation)
+            .ok_or(IntelError::UnsupportedSimulationOperation(instruction.operation.to_string()))?;
+
+        let mut total_cost: usize = 0;
+
+        for instruction_cost in instruction_costs {
+            if !instruction_cost.matches(instruction) {
+                continue;
+            }
+
+            total_cost += instruction_cost.base_cost as usize;
+
+            if instruction_cost.transfers > 0 {
+                // Get the EAC.
+                let eac: &EAC;
+                if let Operand::EAC(e) = &instruction.dst {
+                    eac = e;
+                } else if let Operand::EAC(e) = &instruction.src {
+                    eac = e;
+                } else {
+                    return Err(IntelError::InvalidInstruction(instruction.clone()));
+                }
+
+                // Check if the address is odd.
+                // If so, we have to add 4 cycles per transfer.
+                let (address, _) = self.resolve_eac(eac);
+                if is_odd(address) {
+                    total_cost += 4 * instruction_cost.transfers as usize;
+                }
+
+                // Check if this instruction has a cost associated with EAC.
+                if instruction_cost.eac_cost {
+                    total_cost = resolve_eac_cost(eac);
+                }
+            }
+        }
+
+        Ok(total_cost)
     }
 
     fn loadu16(&self, address: usize) -> u16 {
@@ -427,6 +495,10 @@ fn right_pad(value: impl std::fmt::Display, pad: char, width: usize) -> String {
         .chain(std::iter::repeat(pad))
         .take(width)
         .collect::<String>()
+}
+
+fn is_odd(value: u16) -> bool {
+    value & 1 == 1
 }
 
 const PAD_AMOUNT: usize = 30;

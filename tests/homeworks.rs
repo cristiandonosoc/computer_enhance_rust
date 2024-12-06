@@ -1,5 +1,7 @@
 mod common;
 
+use log::*;
+
 use std::sync::atomic::{AtomicBool, Ordering};
 
 fn evaluate_debug_logging() {
@@ -22,6 +24,7 @@ fn homework1() {
     ];
 
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::run_nasm_test(listing) {
             assert!(false, "{}", e);
         }
@@ -38,6 +41,7 @@ fn homework2() {
     ];
 
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::run_nasm_test(listing) {
             assert!(false, "{}", e);
         }
@@ -54,6 +58,7 @@ fn homework3() {
     ];
 
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::run_nasm_test(listing) {
             assert!(false, "{}", e);
         }
@@ -70,6 +75,7 @@ fn homework4() {
         "listing_44.asm",
     ];
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::simulation::run_simulation_test(listing) {
             assert!(false, "{}", e);
         }
@@ -85,6 +91,7 @@ fn homework5() {
         "listing_46.asm",
     ];
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::simulation::run_simulation_test(listing) {
             assert!(false, "{}", e);
         }
@@ -101,6 +108,7 @@ fn homework6() {
         "listing_49.asm",
     ];
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::simulation::run_simulation_test(listing) {
             assert!(false, "{}", e);
         }
@@ -118,8 +126,26 @@ fn homework7() {
         "listing_53.asm",
     ];
     for listing in listings {
+        info!("Running listing {}", listing);
         if let Err(e) = common::simulation::run_simulation_test(listing) {
             assert!(false, "{}", e);
         }
     }
 }
+
+#[test]
+fn homework8() {
+    evaluate_debug_logging();
+
+    #[rustfmt::skip]
+    let listings = [
+        "listing_56.asm",
+    ];
+    for listing in listings {
+        info!("Running listing {}", listing);
+        if let Err(e) = common::simulation::run_simulation_test(listing) {
+            assert!(false, "{}", e);
+        }
+    }
+}
+

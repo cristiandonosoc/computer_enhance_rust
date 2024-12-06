@@ -12,6 +12,9 @@ pub enum TestError {
     #[error("IntelError: {0}")]
     IntelError(#[from] IntelError),
 
+    #[error("Wrong test result")]
+    WrongResult,
+
     #[error("Custom Error: {0}")]
     CustomError(String)
 }

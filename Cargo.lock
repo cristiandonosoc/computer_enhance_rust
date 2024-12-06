@@ -151,6 +151,7 @@ dependencies = [
  "env_logger",
  "function_name",
  "log",
+ "once_cell",
  "rand",
  "serde",
  "serde_json",

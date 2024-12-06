@@ -3,11 +3,12 @@ mod decoding;
 pub mod error;
 pub mod instructions;
 pub mod registers;
+pub mod tables;
 
 use cpu::*;
 use error::IntelError;
 use instructions::*;
-use log::debug;
+use log::*;
 
 pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
     let mut instructions = vec![];
@@ -26,6 +27,7 @@ pub fn disassemble(mut bytes: &[u8]) -> Result<Vec<Instruction>, IntelError> {
 pub struct SimulationResult {
     pub cpu: CPU,
     pub executed_instructions: Vec<Instruction>,
+    pub cycles: usize,
 }
 
 pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
@@ -36,6 +38,7 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
 
     let mut executed_instructions = vec![];
 
+    let mut cycles: usize = 0;
     loop {
         let address = cpu.ip_address();
 
@@ -57,14 +60,17 @@ pub fn simulate(program: &[u8]) -> Result<SimulationResult, IntelError> {
         debug!("\n{:?}", instruction);
 
         // Simulate the instruction into the cpu.
-        cpu.simulate(&instruction)?;
+        cycles += cpu.simulate(&instruction)?;
 
         executed_instructions.push(instruction);
     }
 
+    info!("Total cycles: {}", cycles);
+
     let result = SimulationResult {
         cpu,
         executed_instructions,
+        cycles,
     };
 
     Ok(result)
