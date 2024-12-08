@@ -42,28 +42,48 @@ impl Coord {
     }
 }
 
-pub fn generate_points(method: GenerationMethod, count: usize, seed: u64) -> Vec<Coord> {
-    match method {
-        GenerationMethod::Uniform => generate_uniform_points(count, seed),
-        GenerationMethod::Clustered => generate_clustered_points(count, seed),
-    }
+pub struct GenerationResult {
+    pub coords: Vec<Coord>,
+    pub average: f64,
 }
 
-fn generate_uniform_points(count: usize, seed: u64) -> Vec<Coord> {
+pub fn generate_points(
+    method: GenerationMethod,
+    count: usize,
+    seed: u64,
+    radius: f64,
+) -> GenerationResult {
+    let start = Instant::now();
+
+    let result = match method {
+        GenerationMethod::Uniform => generate_uniform_points(count, seed, radius),
+        GenerationMethod::Clustered => generate_clustered_points(count, seed, radius),
+    };
+
+    let elapsed = start.elapsed();
+    info!(
+        "{:?} generation of {:?} points (average: {:?}) took {:?}",
+        method, count, result.average, elapsed
+    );
+
+    result
+}
+
+fn generate_uniform_points(count: usize, seed: u64, radius: f64) -> GenerationResult {
     let mut rng = generate_rng(seed);
     let mut coords = Vec::with_capacity(count);
+    let mut sum: f64 = 0.0;
 
     {
-        let start = Instant::now();
-
         for _ in 0..count {
-            coords.push(Coord::new_uniform(&mut rng));
+            let coord = Coord::new_uniform(&mut rng);
+            sum += reference_haversine(&coord, radius);
+            coords.push(coord);
         }
-
-        info!("Uniform Point generation took {:?}", start.elapsed());
     }
 
-    coords
+    let average = sum / coords.len() as f64;
+    GenerationResult { coords, average }
 }
 
 #[derive(Debug)]
@@ -93,16 +113,16 @@ impl Cluster {
     }
 }
 
-fn generate_clustered_points(count: usize, seed: u64) -> Vec<Coord> {
+fn generate_clustered_points(count: usize, seed: u64, radius: f64) -> GenerationResult {
     let mut rng = generate_rng(seed);
     let mut coords = Vec::with_capacity(count);
+    let mut sum: f64 = 0.0;
 
     // Generate random clusters.
     let cluster_count = 3;
     let mut clusters = Vec::with_capacity(cluster_count);
 
     {
-        let start = Instant::now();
         for i in 0..cluster_count {
             let cluster = Cluster::new(&mut rng);
             debug!("Generated cluster {:?} {:?}", i, cluster);
@@ -114,12 +134,14 @@ fn generate_clustered_points(count: usize, seed: u64) -> Vec<Coord> {
             let cluster = &clusters[cluster_index];
 
             let coord = Coord::new_clustered(&mut rng, cluster);
+            sum += reference_haversine(&coord, radius);
+
             coords.push(coord);
         }
-        info!("Clustered point generation took {:?}", start.elapsed());
     }
 
-    coords
+    let average = sum / coords.len() as f64;
+    GenerationResult { coords, average }
 }
 
 pub fn haversine_average(coords: &[Coord], radius: f64) -> f64 {

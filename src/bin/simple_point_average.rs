@@ -1,6 +1,6 @@
 use clap::Parser;
 use computer_enhance_rust::{args, haversine, haversine::*};
-
+use log::info;
 use std::{fs::File, io::BufReader, time::Instant};
 
 #[derive(Parser)]
@@ -30,8 +30,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         coords = serde_json::from_reader(reader)?;
 
-        let end = Instant::now();
-        println!("TIMING: Reading json {:?}", end - start);
+        info!("Reading json took {:?}", start.elapsed());
     }
 
     {
@@ -39,8 +38,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let average = haversine_average(&coords, args.haversine.earth_radius);
 
-        println!("Havensine average: {:?}", average);
-        println!("TIMING: Calculating average: {:?}", start.elapsed());
+        info!("Havensine average: {:?}", average);
+        info!("Calculating average took: {:?}", start.elapsed());
     }
 
     Ok(())

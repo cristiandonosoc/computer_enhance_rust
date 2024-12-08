@@ -1,5 +1,6 @@
 use clap::Parser;
 use computer_enhance_rust::{self, args, intel8086};
+use log::info;
 
 #[derive(Parser)]
 struct Args {
@@ -20,7 +21,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instructions = intel8086::disassemble(&contents)?;
 
     let asm = intel8086::to_asm(&instructions);
-    println!("{}", asm);
+    info!("{}", asm);
 
     Ok(())
 }

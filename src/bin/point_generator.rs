@@ -1,5 +1,6 @@
 use clap::Parser;
 use computer_enhance_rust::{args, haversine, haversine::*};
+use log::info;
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -25,10 +26,11 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let filename = args.output;
 
-    let coords = generate_points(
+    let result = generate_points(
         args.haversine.generation_method,
         args.point_count as usize,
         args.haversine.seed,
+        args.haversine.earth_radius,
     );
 
     let json: String;
@@ -36,9 +38,9 @@ fn main() -> Result<(), Box<dyn Error>> {
         let start = Instant::now();
 
         // Convert to JSON.
-        json = serde_json::to_string_pretty(&coords)?;
+        json = serde_json::to_string_pretty(&result.coords)?;
 
-        println!("Json generation took {:?}", start.elapsed());
+        info!("Json generation took {:?}", start.elapsed());
     }
 
     {
@@ -48,7 +50,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         let mut file = File::create(&filename)?;
         file.write_all(json.as_bytes())?;
 
-        println!("Writing to {:?} took {:?}", filename, start.elapsed());
+        info!("Writing to {:?} took {:?}", filename, start.elapsed());
     }
 
     Ok(())
