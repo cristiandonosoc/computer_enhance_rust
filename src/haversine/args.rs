@@ -1,4 +1,4 @@
-pub use clap::Parser;
+use clap::Parser;
 
 use super::GenerationMethod;
 

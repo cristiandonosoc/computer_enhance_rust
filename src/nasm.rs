@@ -1,4 +1,5 @@
-use std::path::{Path, PathBuf};
+use super::get_cargo_root;
+use std::path::Path;
 use std::process::Command;
 use tempfile::NamedTempFile;
 
@@ -28,11 +29,4 @@ pub fn run_nasm(output_dir: &Path, filepath: impl AsRef<Path>) -> Result<Vec<u8>
 
     let bytes = std::fs::read(&temp_file)?;
     Ok(bytes)
-}
-
-pub fn get_cargo_root() -> Result<PathBuf, Error> {
-    const ENV_NAME: &str = "CARGO_MANIFEST_DIR";
-    let cargo_env = std::env::var(ENV_NAME)
-        .map_err(|_| Error::new(ErrorKind::NotFound, format!("env {} not found!", ENV_NAME)))?;
-    Ok(PathBuf::from(cargo_env))
 }

@@ -1,7 +1,7 @@
 pub mod error;
 pub mod simulation;
 
-use computer_enhance_rust::nasm::*;
+use computer_enhance_rust::{get_cargo_root, nasm::*};
 use error::TestError;
 use similar::{ChangeTag, TextDiff};
 use std::path::{Path, PathBuf};
