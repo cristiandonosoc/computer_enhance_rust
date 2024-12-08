@@ -1,14 +1,24 @@
-use computer_enhance_rust::haversine::*;
+use clap::Parser;
+use computer_enhance_rust::{args, haversine, haversine::*};
 
 use std::{fs::File, io::BufReader, time::Instant};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() != 1 {
-        panic!("Usage: point_generator <FILE>");
-    }
+#[derive(Parser)]
+struct Args {
+    pub input: String,
 
-    let filename = &args[0];
+    #[command(flatten)]
+    base: args::BaseArgs,
+
+    #[command(flatten)]
+    haversine: haversine::args::HaversineArgs,
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let args = Args::parse();
+    computer_enhance_rust::args::evaluate_log(&args.base);
+
+    let filename = args.input;
 
     let coords: Vec<Coord>;
 
@@ -27,18 +37,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     {
         let start = Instant::now();
 
-        let radius = 6371.0;
-        let mut sum: f32 = 0.0;
-        for coord in &coords {
-            let hd = reference_haversine(coord, radius);
-            sum += hd;
-        }
+        let average = haversine_average(&coords, args.haversine.earth_radius);
 
-        let end = Instant::now();
-
-        let average = sum / (coords.len() as f32);
         println!("Havensine average: {:?}", average);
-        println!("TIMING: Calculating average: {:?}", end - start);
+        println!("TIMING: Calculating average: {:?}", start.elapsed());
     }
 
     Ok(())

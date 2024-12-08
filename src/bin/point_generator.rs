@@ -1,6 +1,5 @@
 use clap::Parser;
-use computer_enhance_rust::{args, haversine};
-use rand::{rngs::StdRng, SeedableRng};
+use computer_enhance_rust::{args, haversine, haversine::*};
 use std::error::Error;
 use std::fs::File;
 use std::io::Write;
@@ -8,7 +7,10 @@ use std::time::Instant;
 
 #[derive(Parser)]
 struct Args {
-    pub output: String,
+    output: String,
+
+    #[arg(long, required = true)]
+    point_count: u64,
 
     #[command(flatten)]
     base: args::BaseArgs,
@@ -21,27 +23,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     let args = Args::parse();
     computer_enhance_rust::args::evaluate_log(&args.base);
 
-    let count: usize = args.haversine.point_count as usize;
     let filename = args.output;
 
-    let mut coords = Vec::with_capacity(count);
-
-    {
-        let start = Instant::now();
-
-        let mut rng: StdRng;
-        if args.haversine.seed != 0 {
-            rng = StdRng::seed_from_u64(args.haversine.seed);
-        } else {
-            rng = StdRng::from_entropy();
-        }
-
-        for _ in 0..count {
-            coords.push(haversine::Coord::new_random(&mut rng));
-        }
-
-        println!("Point generation took {:?}", start.elapsed());
-    }
+    let coords = generate_points(
+        args.haversine.generation_method,
+        args.point_count as usize,
+        args.haversine.seed,
+    );
 
     let json: String;
     {
