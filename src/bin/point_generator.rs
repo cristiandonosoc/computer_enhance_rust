@@ -1,49 +1,67 @@
-use rand::Rng;
-use serde::Serialize;
+use clap::Parser;
+use computer_enhance_rust::{args, haversine};
+use rand::{rngs::StdRng, SeedableRng};
+use std::error::Error;
 use std::fs::File;
 use std::io::Write;
-use std::error::Error;
+use std::time::Instant;
 
-#[derive(Serialize)]
-struct Coord {
-    x0: f32,
-    y0: f32,
-    x1: f32,
-    y1: f32,
-}
+#[derive(Parser)]
+struct Args {
+    pub output: String,
 
-fn generate_coord() -> Coord {
-    let mut rng = rand::thread_rng();
+    #[command(flatten)]
+    base: args::BaseArgs,
 
-    Coord {
-        x0: rng.gen_range(-180.0..180.0),
-        y0: rng.gen_range(-90.0..90.0),
-        x1: rng.gen_range(-180.0..180.0),
-        y1: rng.gen_range(-90.0..90.0),
-    }
+    #[command(flatten)]
+    haversine: haversine::args::HaversineArgs,
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let args: Vec<String> = std::env::args().skip(1).collect();
-    if args.len() != 2 {
-        panic!("Usage: point_generator <COUNT> <FILE>");
-    }
+    let args = Args::parse();
+    computer_enhance_rust::args::evaluate_log(&args.base);
 
-    let count : usize = args[0].parse()?;
-    let filename = &args[1];
+    let count: usize = args.haversine.point_count as usize;
+    let filename = args.output;
 
     let mut coords = Vec::with_capacity(count);
 
-    for _ in 0..count{
-        coords.push(generate_coord());
+    {
+        let start = Instant::now();
+
+        let mut rng: StdRng;
+        if args.haversine.seed != 0 {
+            rng = StdRng::seed_from_u64(args.haversine.seed);
+        } else {
+            rng = StdRng::from_entropy();
+        }
+
+        for _ in 0..count {
+            coords.push(haversine::Coord::new_random(&mut rng));
+        }
+
+        println!("Point generation took {:?}", start.elapsed());
     }
 
-    // Convert to JSON.
-    let json = serde_json::to_string_pretty(&coords)?;
+    let json: String;
+    {
+        let start = Instant::now();
 
-    // Write to file.
-    let mut file = File::create(filename)?;
-    file.write_all(json.as_bytes())?;
+        // Convert to JSON.
+        json = serde_json::to_string_pretty(&coords)?;
+
+        println!("Json generation took {:?}", start.elapsed());
+    }
+
+    {
+        let start = Instant::now();
+
+        // Write to file.
+        let mut file = File::create(&filename)?;
+        file.write_all(json.as_bytes())?;
+
+        println!("Writing to {:?} took {:?}", filename, start.elapsed());
+    }
 
     Ok(())
 }
