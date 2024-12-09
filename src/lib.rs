@@ -3,6 +3,7 @@ pub mod haversine;
 pub mod intel8086;
 pub mod json;
 pub mod nasm;
+pub mod perf;
 
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
