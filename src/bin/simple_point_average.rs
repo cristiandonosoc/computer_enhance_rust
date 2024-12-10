@@ -1,10 +1,9 @@
 use clap::Parser;
-use computer_enhance_rust::{args, haversine, haversine::*, json};
+use computer_enhance_rust::{args, haversine, haversine::*, json, perf};
 use log::info;
 use std::{
     fs::File,
     io::{BufReader, Error, ErrorKind},
-    time::Instant,
 };
 
 #[derive(Parser)]
@@ -22,16 +21,20 @@ struct Args {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let start = perf::read_cpu_timer();
+
+    let mut timings: Vec<(u64, &'static str)> = Vec::with_capacity(10);
+
     let args = Args::parse();
     computer_enhance_rust::args::evaluate_log(&args.base);
 
-    let filename = args.input;
+    let end = perf::read_cpu_timer();
+    timings.push((end - start, "Startup"));
 
+    let filename = args.input;
     let mut coords: Vec<Coord> = vec![];
 
     {
-        let start = Instant::now();
-
         match args.json.json_parser {
             json::args::JsonParser::Serde => {
                 let file = File::open(filename)?;
@@ -39,10 +42,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 coords = serde_json::from_reader(reader)?;
             }
             json::args::JsonParser::Custom => {
+                let start = perf::read_cpu_timer();
+
                 let bytes = std::fs::read(filename)?;
+                info!("Input size: {}", bytes.len());
+
+                timings.push((perf::read_cpu_timer() - start, "Read File"));
+
+                let start = perf::read_cpu_timer();
+
                 let json::JsonValue::Array(array) = json::parse(&bytes)? else {
                     return Err(Box::new(Error::new(ErrorKind::InvalidData, "Expected array")));
                 };
+
+                timings.push((perf::read_cpu_timer() - start, "Parse JSON"));
+
+                let start = perf::read_cpu_timer();
+
+                info!("Pair count: {}", array.values.len());
 
                 coords.reserve(array.values.len());
 
@@ -62,19 +79,36 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     };
                     coords.push(coord);
                 }
+
+                timings.push((perf::read_cpu_timer() - start, "Extract Coords from JSON Object"));
             }
         }
-
-        info!("Reading json using parser {:?} took {:?}", args.json.json_parser, start.elapsed());
     }
 
     {
-        let start = Instant::now();
-
+        let start = perf::read_cpu_timer();
         let average = haversine_average(&coords, args.haversine.earth_radius);
+        timings.push((perf::read_cpu_timer() - start, "Calculate Average"));
 
         info!("Havensine average: {:?}", average);
-        info!("Calculating average took: {:?}", start.elapsed());
+    }
+
+    let cycles: u64 = timings.iter().map(|(num, _)| num).sum();
+    let freq = perf::estimate_cpu_frequency();
+
+    let seconds = perf::get_seconds_from_cpu(cycles, freq);
+
+    info!("");
+    info!("Total Time: {:.4}s - CPU freq. {} (~{})", seconds, freq, perf::print_freq(freq));
+    for (section_cycles, name) in timings {
+        let seconds = perf::get_seconds_from_cpu(section_cycles, freq);
+        info!(
+            "    {} - Cycles: {}, Time: {:.4}s ({:.4}%)",
+            name,
+            section_cycles,
+            seconds,
+            100.0 * (section_cycles as f64) / (cycles as f64)
+        );
     }
 
     Ok(())
