@@ -1,5 +1,4 @@
 use core::arch::x86_64;
-use std::mem;
 use winapi::um::profileapi;
 
 #[inline]
@@ -11,7 +10,8 @@ pub fn read_cpu_timer() -> u64 {
 
 pub fn read_os_timer() -> u64 {
     unsafe {
-        let mut counter = mem::zeroed();
+        #[allow(invalid_value)]
+        let mut counter = std::mem::MaybeUninit::uninit().assume_init();
         profileapi::QueryPerformanceCounter(&mut counter);
         return *counter.QuadPart() as u64;
     }
@@ -19,7 +19,8 @@ pub fn read_os_timer() -> u64 {
 
 pub fn read_os_freq() -> u64 {
     unsafe {
-        let mut freq = mem::zeroed();
+        #[allow(invalid_value)]
+        let mut freq = std::mem::MaybeUninit::uninit().assume_init();
         profileapi::QueryPerformanceFrequency(&mut freq);
         return *freq.QuadPart() as u64;
     }
