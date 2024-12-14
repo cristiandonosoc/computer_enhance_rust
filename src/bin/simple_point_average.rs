@@ -1,4 +1,4 @@
-use computer_enhance_rust::profile_block;
+use computer_enhance_rust::{profile_block, start_profiling_block, end_profiling_block};
 use clap::Parser;
 use computer_enhance_rust::{args, haversine, haversine::*, json, perf, perf::profiler::*};
 use log::info;
@@ -24,12 +24,12 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_profiler();
 
-    start_profiling_block("Startup");
+    let start = start_profiling_block!("Startup");
 
     let args = Args::parse();
     computer_enhance_rust::args::evaluate_log(&args.base);
 
-    end_profiling_block();
+    end_profiling_block!(start);
 
     let filename = args.input;
     let mut coords: Vec<Coord> = vec![];
@@ -42,12 +42,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 coords = serde_json::from_reader(reader)?;
             }
             json::args::JsonParser::Custom => {
-                start_profiling_block("Read File");
+                let start = start_profiling_block!("Read File");
 
                 let bytes = std::fs::read(filename)?;
                 info!("Input size: {}", bytes.len());
 
-                end_profiling_block();
+                end_profiling_block!(start);
 
 
                 let json::JsonValue::Array(array) = json::parse(&bytes)? else {

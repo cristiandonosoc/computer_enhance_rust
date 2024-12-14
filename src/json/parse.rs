@@ -75,6 +75,8 @@ fn parse_value_internal<'a>(
     first_token: Token<'a>,
     state: ParseState,
 ) -> Result<ParseOutput<'a>, Error> {
+    profile_function!();
+
     match first_token {
         Token::LeftBracket => return parse_array(bytes, state),
         Token::LeftBrace => return parse_object(bytes, state),
@@ -109,6 +111,8 @@ fn parse_value_internal<'a>(
 }
 
 fn parse_array(bytes: &[u8], mut state: ParseState) -> Result<ParseOutput, Error> {
+    profile_function!();
+
     // debug!("--> Parsing array at {}", state);
     let mut values = vec![];
 
@@ -142,6 +146,8 @@ fn parse_array(bytes: &[u8], mut state: ParseState) -> Result<ParseOutput, Error
 }
 
 fn parse_object(bytes: &[u8], mut state: ParseState) -> Result<ParseOutput, Error> {
+    profile_function!();
+
     // debug!("--> Parsing object at {}", state);
     let mut pairs = vec![];
 
@@ -189,6 +195,8 @@ fn parse_object(bytes: &[u8], mut state: ParseState) -> Result<ParseOutput, Erro
 }
 
 fn parse_token(bytes: &[u8], state: ParseState) -> Result<(Token, ParseState), Error> {
+    profile_function!();
+
     let (token, state) = parse_token_internal(bytes, state)?;
 
     // debug!("Parsed token {:?} at {}", token, state);
@@ -273,6 +281,8 @@ fn seek(bytes: &[u8], mut state: ParseState, pattern: &[u8]) -> Option<ParseStat
 
 // IMPORTANT: The index already considers parsing the initial double quote (one past it).
 fn parse_string(bytes: &[u8], mut state: ParseState) -> Result<(Token, ParseState), Error> {
+    profile_function!();
+
     let start_index: usize = state.index;
     let mut curr: u8 = bytes[state.index];
 
@@ -317,6 +327,8 @@ fn parse_string(bytes: &[u8], mut state: ParseState) -> Result<(Token, ParseStat
 }
 
 fn parse_number(bytes: &[u8], mut state: ParseState) -> Result<(Token, ParseState), Error> {
+    profile_function!();
+
     // TODO: Maybe implement https://arxiv.org/abs/2101.11408 if we want to be mega fast?
 
     let start_index: usize = state.index;
