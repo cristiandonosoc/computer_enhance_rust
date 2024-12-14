@@ -7,6 +7,8 @@ mod parse;
 #[allow(unused_imports)]
 use log::debug;
 
+use crate::profile_function;
+
 #[derive(Debug)]
 pub enum JsonValue<'a> {
     Array(Array<'a>),
@@ -50,6 +52,8 @@ impl<'a> Object<'a> {
 }
 
 pub fn parse(bytes: &[u8]) -> Result<JsonValue, std::io::Error> {
+    profile_function!();
+
     if bytes.is_empty() {
         return Err(std::io::Error::new(InvalidData, "Empty data"));
     }

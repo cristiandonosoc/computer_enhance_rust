@@ -8,6 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::ops::Range;
 use std::time::Instant;
 
+use crate::profile_function;
+
 #[derive(Debug, Clone, ValueEnum)]
 pub enum GenerationMethod {
     Uniform,
@@ -145,6 +147,8 @@ fn generate_clustered_points(count: usize, seed: u64, radius: f64) -> Generation
 }
 
 pub fn haversine_average(coords: &[Coord], radius: f64) -> f64 {
+    profile_function!();
+
     if coords.is_empty() {
         return 0.0;
     }

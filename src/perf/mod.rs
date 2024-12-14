@@ -1,3 +1,5 @@
+pub mod profiler;
+
 use core::arch::x86_64;
 use winapi::um::profileapi;
 
