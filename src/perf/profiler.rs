@@ -65,20 +65,10 @@ macro_rules! end_profiling_block {
 }
 
 pub struct ProfilerScope {
-    //label: &'static str,
     start_cycles: u64,
-    //index: u16,
 }
 
 impl ProfilerScope {
-    // pub fn new(label: &'static str, index: u16) -> Self {
-    //     Self {
-    //         label,
-    //         start_cycles: read_cpu_timer(),
-    //         index,
-    //     }
-    // }
-
     pub fn new() -> Self {
         Self {
             start_cycles: read_cpu_timer(),
@@ -261,6 +251,7 @@ pub fn print_timings() {
             "CALL COUNT",
             "CYCLES",
             "AVG. CYCLES/CALL",
+            "AVG. TIME/CALL",
             "INCLUSIVE",
             "EXCLUSIVE"
         ]);
@@ -285,13 +276,15 @@ fn add_timing_row(table: &mut Table, entry: &ProfilerEntry) {
         let exclusive = 100.0 * (exclusive_cycles as f64) / (PROFILER.cycles() as f64);
 
         let avg_cycles = (entry.cycles as f64) / (entry.call_count as f64);
+        let avg_time = (section_seconds as f64) / (entry.call_count as f64);
 
         table.add_row(row![
             label,
-            format!("{:.4}s", section_seconds),
+            print_time(section_seconds),
             entry.call_count.to_formatted_string(&Locale::en),
             entry.cycles.to_formatted_string(&Locale::en),
             format!("{:.4}", avg_cycles),
+            print_time(avg_time),
             format!("{:.4}%", inclusive),
             format!("{:.4}%", exclusive),
         ]);

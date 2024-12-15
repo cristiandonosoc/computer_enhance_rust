@@ -80,3 +80,28 @@ pub fn print_freq(freq: u64) -> String {
     freq = freq / 1000.0;
     return format!("{} GHz", freq);
 }
+
+const DAY: f64 = 24.0 * HOUR;
+const HOUR: f64 = 60.0 * MINUTE;
+const MINUTE: f64 = 60.0;
+const SECOND: f64 = 1.0;
+const MILLISECOND: f64 = 0.001;
+const MICROSECOND: f64 = 0.000_001;
+
+pub fn print_time(seconds: f64) -> String {
+    if seconds > DAY {
+        return format!("{:.4} days", seconds / DAY);
+    } else if seconds > HOUR {
+        return format!("{:.4} hours", seconds / HOUR);
+    } else if seconds > MINUTE {
+        return format!("{:.4} m", seconds / MINUTE);
+    } else if seconds > SECOND {
+        return format!("{:.4} s", seconds);
+    } else if seconds > MILLISECOND {
+        return format!("{:.4} ms", seconds * 1000.0);
+    } else if seconds > MICROSECOND {
+        return format!("{:.4} us", seconds * 1_000_000.0);
+    } else {
+        return format!("{:.4} ns", seconds * 1_000_000_000.0);
+    }
+}
