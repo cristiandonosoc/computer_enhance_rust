@@ -5,6 +5,9 @@ pub mod json;
 pub mod nasm;
 pub mod perf;
 
+#[macro_use]
+extern crate prettytable;
+
 use std::io::{Error, ErrorKind};
 use std::path::PathBuf;
 

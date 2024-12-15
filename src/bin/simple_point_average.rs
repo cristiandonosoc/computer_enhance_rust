@@ -1,6 +1,6 @@
-use computer_enhance_rust::{profile_block, start_profiling_block, end_profiling_block};
 use clap::Parser;
 use computer_enhance_rust::{args, haversine, haversine::*, json, perf, perf::profiler::*};
+use computer_enhance_rust::{end_profiling_block, profile_block, start_profiling_block};
 use log::info;
 use std::{
     fs::File,
@@ -49,13 +49,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 end_profiling_block!(start);
 
-
                 let json::JsonValue::Array(array) = json::parse(&bytes)? else {
                     return Err(Box::new(Error::new(ErrorKind::InvalidData, "Expected array")));
                 };
 
                 {
-
                     info!("Pair count: {}", array.values.len());
                     profile_block!("Extract Coords from JSON Object");
 

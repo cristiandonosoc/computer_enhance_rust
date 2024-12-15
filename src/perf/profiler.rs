@@ -1,10 +1,19 @@
 use super::*;
 use num_format::*;
+use prettytable::Table;
 
 #[macro_export]
 macro_rules! profile_block {
     ($label:expr) => {
-        crate::perf::profiler::start_entry($label);
+        unsafe {
+            static INIT: std::sync::Once = std::sync::Once::new();
+            static mut INDEX: u16 = 0;
+            INIT.call_once(|| {
+                INDEX = crate::perf::profiler::get_next_index();
+            });
+            crate::perf::profiler::start_entry(INDEX, $label);
+        }
+
         let mut __profiler_scope = crate::perf::profiler::ProfilerScope::new();
     };
 }
@@ -17,7 +26,15 @@ macro_rules! profile_function {
             std::any::type_name::<T>()
         }
 
-        crate::perf::profiler::start_entry(type_name_of(__function));
+        unsafe {
+            static INIT: std::sync::Once = std::sync::Once::new();
+            static mut INDEX: u16 = 0;
+            INIT.call_once(|| {
+                INDEX = crate::perf::profiler::get_next_index();
+            });
+
+            crate::perf::profiler::start_entry(INDEX, type_name_of(__function));
+        }
         let mut __profiler_scope = crate::perf::profiler::ProfilerScope::new();
     };
 }
@@ -25,7 +42,16 @@ macro_rules! profile_function {
 #[macro_export]
 macro_rules! start_profiling_block {
     ($label:expr) => {{
-        crate::perf::profiler::start_entry($label);
+        unsafe {
+            static INIT: std::sync::Once = std::sync::Once::new();
+            static mut INDEX: u16 = 0;
+            INIT.call_once(|| {
+                INDEX = crate::perf::profiler::get_next_index();
+            });
+
+            crate::perf::profiler::start_entry(INDEX, $label);
+        }
+
         crate::perf::read_cpu_timer()
     }};
 }
@@ -39,10 +65,20 @@ macro_rules! end_profiling_block {
 }
 
 pub struct ProfilerScope {
+    //label: &'static str,
     start_cycles: u64,
+    //index: u16,
 }
 
 impl ProfilerScope {
+    // pub fn new(label: &'static str, index: u16) -> Self {
+    //     Self {
+    //         label,
+    //         start_cycles: read_cpu_timer(),
+    //         index,
+    //     }
+    // }
+
     pub fn new() -> Self {
         Self {
             start_cycles: read_cpu_timer(),
@@ -65,6 +101,7 @@ const DEFAULT_ENTRY: ProfilerEntry = ProfilerEntry {
     call_count: 0,
     cycles: 0,
     children_cycles: 0,
+    ref_count: 0,
 };
 
 struct Profiler {
@@ -73,13 +110,11 @@ struct Profiler {
     end_cycles: u64,
     total_seconds: f64,
 
-    markers: [u64; PROFILER_ENTRIES],
-    // markers: [&'static str; PROFILER_ENTRIES],
     stack: [u16; STACK_SIZE],
     stack_top: usize,
 
     entries: [ProfilerEntry; PROFILER_ENTRIES],
-    entries_top: usize,
+    next_entry_index: u16,
 }
 
 static mut PROFILER: Profiler = Profiler {
@@ -88,13 +123,11 @@ static mut PROFILER: Profiler = Profiler {
     end_cycles: 0,
     total_seconds: 0.0,
 
-    markers: [0; PROFILER_ENTRIES],
-    // markers: [""; PROFILER_ENTRIES],
     stack: [0; STACK_SIZE],
     stack_top: 0,
 
     entries: [DEFAULT_ENTRY; PROFILER_ENTRIES],
-    entries_top: 0,
+    next_entry_index: 0,
 };
 
 impl Profiler {
@@ -109,13 +142,24 @@ impl Profiler {
 
         self.cpu_freq = estimate_cpu_frequency();
         self.start_cycles = read_cpu_timer();
+        self.next_entry_index = 1;
 
-        self.start_entry("program");
+        self.start_entry(0, "program");
     }
 
     fn shutdown(&mut self) {
         self.end_cycles = read_cpu_timer();
         self.end_entry(self.cycles());
+
+        for i in 0..self.next_entry_index {
+            let entry = &self.entries[i as usize];
+            if entry.ref_count > 0 {
+                panic!(
+                    "entry \"{}\" is still active (ref_count: {})",
+                    entry.label, entry.ref_count
+                );
+            }
+        }
 
         if self.stack_top != 0 {
             panic!("Not all entries were closed!");
@@ -126,37 +170,14 @@ impl Profiler {
         self.start_cycles > 0 && self.end_cycles == 0
     }
 
-    fn start_entry(&mut self, label: &'static str) {
-        let label_marker = label.as_ptr() as u64;
-        // let label_marker = label;
-
-        // Find if there is an index.
-        let mut index: usize = 0;
-        for (i, marker) in self.markers.iter().enumerate() {
-            if *marker == label_marker {
-                index = i;
-                break;
-            }
-
-            // If we find a zero, means that we don't have that many markers.
-            if *marker == 0 {
-                break;
-            }
-        }
-
-        // If we didn't find an entry, we have to add a new one.
-        if index == 0 {
-            self.markers[self.entries_top] = label_marker;
-            self.entries[self.entries_top].label = label;
-            index = self.entries_top;
-            self.entries_top += 1;
-        }
-
-        let entry = &mut self.entries[index];
+    fn start_entry(&mut self, index: u16, label: &'static str) {
+        let entry = &mut self.entries[index as usize];
+        entry.label = label;
         entry.call_count += 1;
+        entry.ref_count += 1;
 
         // Add it to the stack.
-        self.stack[self.stack_top] = index as u16;
+        self.stack[self.stack_top] = index;
         self.stack_top += 1;
     }
 
@@ -165,47 +186,25 @@ impl Profiler {
         let index = self.stack[self.stack_top - 1] as usize;
         self.stack_top -= 1;
 
-        let marker = self.entries[index].marker();
-
-        // Simple case.
-        if self.stack_top == 0 {
-            self.entries[index].cycles += cycles;
-            return;
-        }
-
-        // Walk the stack to see if this current marker is already there.
-        // If the current entry is in the stack already, then we should not add the cycles, because
-        // we would double (or more) counting.
-        if !self.is_in_stack(marker, 1) {
+        // If the ref-count is more than one, it means that this entry was twice in the stack, so
+        // it would be double counting.
+        self.entries[index].ref_count -= 1;
+        if self.entries[index].ref_count == 0 {
             self.entries[index].cycles += cycles;
         }
 
         // Add timing to the parent scope if it's not in the stack already.
         // Otherwise it's double counting again.
-        let parent_index = self.stack[self.stack_top - 1] as usize;
-        let parent_marker = self.entries[parent_index].marker();
-        if !self.is_in_stack(parent_marker, 1) {
-            self.entries[parent_index].children_cycles += cycles;
+        if self.stack_top > 0 {
+            let parent_index = self.stack[self.stack_top - 1] as usize;
+            if self.entries[parent_index].ref_count == 1 {
+                self.entries[parent_index].children_cycles += cycles;
+            }
         }
     }
 
     fn cycles(&self) -> u64 {
         self.end_cycles - self.start_cycles
-    }
-
-    fn is_in_stack(&self, marker: u64, offset: usize) -> bool {
-        if self.stack_top < offset {
-            return false;
-        }
-
-        for i in 0..(self.stack_top - offset) {
-            let index = self.stack[i] as usize;
-            if self.entries[index].marker() == marker {
-                return true;
-            }
-        }
-
-        return false;
     }
 }
 
@@ -221,9 +220,17 @@ pub fn shutdown_profiler() {
     }
 }
 
-pub fn start_entry(name: &'static str) {
+pub fn get_next_index() -> u16 {
     unsafe {
-        PROFILER.start_entry(name);
+        let index = PROFILER.next_entry_index;
+        PROFILER.next_entry_index += 1;
+        return index;
+    }
+}
+
+pub fn start_entry(index: u16, label: &'static str) {
+    unsafe {
+        PROFILER.start_entry(index, label);
     }
 }
 
@@ -247,11 +254,47 @@ pub fn print_timings() {
         let freq = PROFILER.cpu_freq;
         PROFILER.total_seconds = get_seconds_from_cpu(PROFILER.cycles(), freq);
 
-        println!("{}", PROFILER.entries[0]);
-        for i in 0..PROFILER.entries_top {
-            let entry = &PROFILER.entries[i];
-            println!("- {}", entry);
+        let mut table = Table::new();
+        table.add_row(row![
+            "NAME",
+            "TIME",
+            "CALL COUNT",
+            "CYCLES",
+            "AVG. CYCLES/CALL",
+            "INCLUSIVE",
+            "EXCLUSIVE"
+        ]);
+
+        for i in 0..PROFILER.next_entry_index {
+            let entry = &mut PROFILER.entries[i as usize];
+            add_timing_row(&mut table, entry);
         }
+
+        table.printstd();
+    }
+}
+
+fn add_timing_row(table: &mut Table, entry: &ProfilerEntry) {
+    unsafe {
+        let label = strip_function_suffix(entry.label);
+        let section_seconds = get_seconds_from_cpu(entry.cycles, PROFILER.cpu_freq);
+
+        let exclusive_cycles = entry.cycles - entry.children_cycles;
+
+        let inclusive = 100.0 * (entry.cycles as f64) / (PROFILER.cycles() as f64);
+        let exclusive = 100.0 * (exclusive_cycles as f64) / (PROFILER.cycles() as f64);
+
+        let avg_cycles = (entry.cycles as f64) / (entry.call_count as f64);
+
+        table.add_row(row![
+            label,
+            format!("{:.4}s", section_seconds),
+            entry.call_count.to_formatted_string(&Locale::en),
+            entry.cycles.to_formatted_string(&Locale::en),
+            format!("{:.4}", avg_cycles),
+            format!("{:.4}%", inclusive),
+            format!("{:.4}%", exclusive),
+        ]);
     }
 }
 
@@ -261,16 +304,7 @@ struct ProfilerEntry {
     call_count: u64,
     cycles: u64,
     children_cycles: u64,
-}
-
-impl ProfilerEntry {
-    fn marker(&self) -> u64 {
-        self.label.as_ptr() as u64
-    }
-
-    // fn marker(&self) -> &'static str {
-    //     self.label
-    // }
+    ref_count: u16,
 }
 
 impl std::fmt::Display for ProfilerEntry {
