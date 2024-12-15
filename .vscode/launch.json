@@ -205,7 +205,7 @@
                     "kind": "bin"
                 }
             },
-            "args": [],
+            "args": ["extras/json/coords_1.json", "--json-parser", "custom"],
             "cwd": "${workspaceFolder}"
         },
         {
