@@ -1,6 +1,6 @@
 use clap::Parser;
+use computer_enhance_rust::profile_block;
 use computer_enhance_rust::{args, haversine, haversine::*, json, perf, perf::profiler::*};
-use computer_enhance_rust::{end_profiling_block, profile_block, start_profiling_block};
 use log::info;
 use std::{
     fs::File,
@@ -24,12 +24,12 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     init_profiler();
 
-    let start = start_profiling_block!("Startup");
-
-    let args = Args::parse();
-    computer_enhance_rust::args::evaluate_log(&args.base);
-
-    end_profiling_block!(start);
+    let args;
+    {
+        profile_block!("Startup");
+        args = Args::parse();
+        computer_enhance_rust::args::evaluate_log(&args.base);
+    }
 
     let filename = args.input;
     let mut coords: Vec<Coord> = vec![];
@@ -42,12 +42,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 coords = serde_json::from_reader(reader)?;
             }
             json::args::JsonParser::Custom => {
-                let start = start_profiling_block!("Read File");
+                let bytes;
+                {
+                    profile_block!("Read File");
 
-                let bytes = std::fs::read(filename)?;
-                info!("Input size: {}", bytes.len());
-
-                end_profiling_block!(start);
+                    bytes = std::fs::read(filename)?;
+                    info!("Input size: {}", bytes.len());
+                }
 
                 let json::JsonValue::Array(array) = json::parse(&bytes)? else {
                     return Err(Box::new(Error::new(ErrorKind::InvalidData, "Expected array")));
@@ -55,6 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
                 {
                     info!("Pair count: {}", array.values.len());
+
                     profile_block!("Extract Coords from JSON Object");
 
                     coords.reserve(array.values.len());
@@ -88,24 +90,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     shutdown_profiler();
 
     print_timings();
-
-    //let cycles: u64 = timings.iter().map(|(num, _)| num).sum();
-    //let freq = perf::estimate_cpu_frequency();
-
-    //let seconds = perf::get_seconds_from_cpu(cycles, freq);
-
-    //info!("");
-    //info!("Total Time: {:.4}s - CPU freq. {} (~{})", seconds, freq, perf::print_freq(freq));
-    //for (section_cycles, name) in timings {
-    //    let seconds = perf::get_seconds_from_cpu(section_cycles, freq);
-    //    info!(
-    //        "    {} - Cycles: {}, Time: {:.4}s ({:.4}%)",
-    //        name,
-    //        section_cycles,
-    //        seconds,
-    //        100.0 * (section_cycles as f64) / (cycles as f64)
-    //    );
-    //}
 
     Ok(())
 }
