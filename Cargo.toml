@@ -3,6 +3,9 @@ name = "computer_enhance_rust"
 version = "0.1.0"
 edition = "2021"
 
+[features]
+profile = []
+
 [dependencies]
 clap = { version = "4.5.20", features = ["derive"] }
 env_logger = "0.11.5"
