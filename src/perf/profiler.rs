@@ -3,48 +3,55 @@ use num_format::*;
 use prettytable::Table;
 
 #[macro_export]
+#[cfg(feature = "profile")]
 macro_rules! profile_block {
     ($label:expr) => {
-        if cfg!(feature = "profile") {
-            let __profiler_scope_index: u16;
-            unsafe {
-                static INIT: std::sync::Once = std::sync::Once::new();
-                static mut INDEX: u16 = 0;
-                INIT.call_once(|| {
-                    INDEX = crate::perf::profiler::get_next_index();
-                });
-                __profiler_scope_index = INDEX;
-            }
-            let mut __profiler_scope =
-                crate::perf::profiler::start_entry(__profiler_scope_index, $label);
+        let __profiler_scope_index: u16;
+        unsafe {
+            static INIT: std::sync::Once = std::sync::Once::new();
+            static mut INDEX: u16 = 0;
+            INIT.call_once(|| {
+                INDEX = crate::perf::profiler::get_next_index();
+            });
+            __profiler_scope_index = INDEX;
         }
+        let __profiler_scope = crate::perf::profiler::start_entry(__profiler_scope_index, $label);
     };
 }
 
 #[macro_export]
+#[cfg(not(feature = "profile"))]
+macro_rules! profile_block {
+    ($label:expr) => {};
+}
+
+#[macro_export]
+#[cfg(feature = "profile")]
 macro_rules! profile_function {
     () => {
-        if cfg!(feature = "profile") {
-            fn __function() {}
-            fn type_name_of<T>(_: T) -> &'static str {
-                std::any::type_name::<T>()
-            }
-
-            let __profiler_scope_index: u16;
-            unsafe {
-                static INIT: std::sync::Once = std::sync::Once::new();
-                static mut INDEX: u16 = 0;
-                INIT.call_once(|| {
-                    INDEX = crate::perf::profiler::get_next_index();
-                });
-                __profiler_scope_index = INDEX;
-            }
-            let mut __profiler_scope = crate::perf::profiler::start_entry(
-                __profiler_scope_index,
-                type_name_of(__function),
-            );
+        fn __function() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
         }
+
+        let __profiler_scope_index: u16;
+        unsafe {
+            static INIT: std::sync::Once = std::sync::Once::new();
+            static mut INDEX: u16 = 0;
+            INIT.call_once(|| {
+                INDEX = crate::perf::profiler::get_next_index();
+            });
+            __profiler_scope_index = INDEX;
+        }
+        let __profiler_scope =
+            crate::perf::profiler::start_entry(__profiler_scope_index, type_name_of(__function));
     };
+}
+
+#[macro_export]
+#[cfg(not(feature = "profile"))]
+macro_rules! profile_function {
+    () => {};
 }
 
 pub struct ProfilerScope {

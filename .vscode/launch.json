@@ -198,14 +198,15 @@
                 "args": [
                     "build",
                     "--bin=simple_point_average",
-                    "--package=computer_enhance_rust"
+                    "--package=computer_enhance_rust",
+                    "--features=profile"
                 ],
                 "filter": {
                     "name": "simple_point_average",
                     "kind": "bin"
                 }
             },
-            "args": ["extras/json/coords_1.json", "--json-parser", "custom"],
+            "args": ["extras/json/coords_2.json", "--json-parser", "custom"],
             "cwd": "${workspaceFolder}"
         },
         {

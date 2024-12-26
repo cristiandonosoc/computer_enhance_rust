@@ -1,6 +1,6 @@
 use clap::Parser;
 use computer_enhance_rust::profile_block;
-use computer_enhance_rust::{args, haversine, haversine::*, json, perf, perf::profiler::*};
+use computer_enhance_rust::{args, haversine, haversine::*, json, perf::profiler::*};
 use log::info;
 use std::{
     fs::File,
