@@ -147,7 +147,7 @@ fn generate_clustered_points(count: usize, seed: u64, radius: f64) -> Generation
 }
 
 pub fn haversine_average(coords: &[Coord], radius: f64) -> f64 {
-    let size = coords.len() * std::mem::size_of::<Coord>();
+    let _size = coords.len() * std::mem::size_of::<Coord>();
     profile_function!(size);
 
     if coords.is_empty() {

@@ -30,15 +30,21 @@ impl RepetitionTester {
         self.entries.push(entry);
     }
 
-    pub fn run(&mut self, rounds: usize) -> Result<(), Error> {
+    pub fn run(&mut self, rounds: usize, inverse_order: bool) -> Result<(), Error> {
         let freq = estimate_cpu_frequency();
         let wait = WAIT_SECONDS * freq;
 
-        for i in 0..rounds {
-            println!("Run {}", i + 1);
+        for round in 0..rounds {
+            println!("Run {}", round + 1);
             println!("--------------------------------------------------------------------------");
 
-            for entry in &mut self.entries {
+            for mut i in 0..self.entries.len() {
+                if inverse_order {
+                    i = self.entries.len() - 1 - i;
+                }
+
+                let entry = &mut self.entries[i];
+
                 println!("\nTesting {}", entry.name);
 
                 let mut stats = TestRunStats::new();
@@ -60,6 +66,8 @@ impl RepetitionTester {
                         best_timestamp = now;
                     }
                 }
+
+                stats.print_stats(freq);
             }
         }
 
@@ -71,7 +79,9 @@ impl RepetitionTester {
 struct TestRunStats {
     min: u64,
     max: u64,
+    total_cycles: u64,
     count: u64,
+    bytes: u64,
 }
 
 impl TestRunStats {
@@ -79,15 +89,19 @@ impl TestRunStats {
         Self {
             min: std::u64::MAX,
             max: 0,
+            total_cycles: 0,
             count: 0,
+            bytes: 0,
         }
     }
 
     // Returns whether a new minimum was found.
     fn add_run(&mut self, run: &TestRun, freq: u64) -> bool {
         self.count += 1;
+        self.bytes = run.bytes;
 
         let cycles = run.end_timestamp - run.start_timestamp;
+        self.total_cycles += cycles;
 
         if self.max < cycles {
             self.max = cycles;
@@ -96,13 +110,25 @@ impl TestRunStats {
         if self.min > cycles {
             self.min = cycles;
 
-            let seconds = get_seconds_from_cpu(cycles, freq);
-            let bandwidth = (run.bytes as f64 / seconds) / (GIGABYTE as f64);
-            println!("New min: {} ({}) {} GB/s", cycles, print_time(seconds), bandwidth);
+            println!("New min: {}", print_run(run.bytes, cycles, freq));
 
             return true;
         }
 
         return false;
     }
+
+    fn print_stats(&self, freq: u64) {
+        println!("- Min: {}", print_run(self.bytes, self.min, freq));
+        println!("- Max: {}", print_run(self.bytes, self.max, freq));
+
+        let avg = self.total_cycles / self.count;
+        println!("- Avg: {}", print_run(self.bytes, avg, freq));
+    }
+}
+
+fn print_run(bytes: u64, cycles: u64, freq: u64) -> String {
+    let seconds = get_seconds_from_cpu(cycles, freq);
+    let bandwidth = (bytes as f64 / seconds) / (GIGABYTE as f64);
+    format!("{} ({}) {} GB/s", cycles, print_time(seconds), bandwidth)
 }

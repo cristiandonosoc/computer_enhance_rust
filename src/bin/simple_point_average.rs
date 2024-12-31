@@ -1,6 +1,6 @@
 use clap::Parser;
 use computer_enhance_rust::profile_block;
-use computer_enhance_rust::{args, haversine, haversine::*, json, perf, perf::profiler::*};
+use computer_enhance_rust::{args, haversine, haversine::*, json, perf::profiler::*};
 use log::info;
 use std::{
     fs::File,
@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             json::args::JsonParser::Custom => {
                 let bytes;
                 {
-                    let size = std::fs::metadata(&filename)?.len();
+                    let _size = std::fs::metadata(&filename)?.len();
                     profile_block!("Read File", size);
 
                     bytes = std::fs::read(filename)?;
