@@ -5,35 +5,7 @@ use prettytable::Table;
 #[macro_export]
 #[cfg(feature = "profile")]
 macro_rules! profile_block {
-    ($label:expr) => {
-        let __profiler_scope_index: u16;
-        unsafe {
-            static INIT: std::sync::Once = std::sync::Once::new();
-            static mut INDEX: u16 = 0;
-            INIT.call_once(|| {
-                INDEX = crate::perf::profiler::get_next_index();
-            });
-            __profiler_scope_index = INDEX;
-        }
-        let __profiler_scope = crate::perf::profiler::start_entry(__profiler_scope_index, $label);
-    };
-}
-
-#[macro_export]
-#[cfg(not(feature = "profile"))]
-macro_rules! profile_block {
-    ($label:expr) => {};
-}
-
-#[macro_export]
-#[cfg(feature = "profile")]
-macro_rules! profile_function {
-    () => {
-        fn __function() {}
-        fn type_name_of<T>(_: T) -> &'static str {
-            std::any::type_name::<T>()
-        }
-
+    ($label:expr, $bytes:expr) => {
         let __profiler_scope_index: u16;
         unsafe {
             static INIT: std::sync::Once = std::sync::Once::new();
@@ -44,14 +16,43 @@ macro_rules! profile_function {
             __profiler_scope_index = INDEX;
         }
         let __profiler_scope =
-            crate::perf::profiler::start_entry(__profiler_scope_index, type_name_of(__function));
+            crate::perf::profiler::start_entry(__profiler_scope_index, $label, $bytes as u64);
     };
+
+    ($label:expr) => {
+        $crate::profile_block!($label, 0);
+    };
+}
+
+#[macro_export]
+#[cfg(feature = "profile")]
+macro_rules! profile_function {
+    () => {
+        $crate::profile_function!(0);
+    };
+
+    ($bytes:expr) => {
+        fn __function() {}
+        fn type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+
+        $crate::profile_block!(type_name_of(__function), $bytes as u64);
+    };
+}
+
+#[macro_export]
+#[cfg(not(feature = "profile"))]
+macro_rules! profile_block {
+    ($label:expr, $bytes:expr) => {};
+    ($label:expr) => {};
 }
 
 #[macro_export]
 #[cfg(not(feature = "profile"))]
 macro_rules! profile_function {
     () => {};
+    ($bytes:expr) => {};
 }
 
 pub struct ProfilerScope {
@@ -100,6 +101,7 @@ struct ProfilerEntry {
     call_count: u64,
     cycles_exclusive: u64,
     cycles_inclusive: u64,
+    bytes: u64,
 }
 
 const DEFAULT_PROFILER_ENTRY: ProfilerEntry = ProfilerEntry {
@@ -107,6 +109,7 @@ const DEFAULT_PROFILER_ENTRY: ProfilerEntry = ProfilerEntry {
     call_count: 0,
     cycles_exclusive: 0,
     cycles_inclusive: 0,
+    bytes: 0,
 };
 
 impl Profiler {
@@ -161,11 +164,12 @@ pub fn get_next_index() -> u16 {
     }
 }
 
-pub fn start_entry(index: u16, label: &'static str) -> ProfilerScope {
+pub fn start_entry(index: u16, label: &'static str, bytes: u64) -> ProfilerScope {
     unsafe {
         let entry = &mut PROFILER.entries[index as usize];
         entry.label = label;
         entry.call_count = u64::wrapping_add(entry.call_count, 1);
+        entry.bytes = u64::wrapping_add(entry.bytes, bytes);
 
         // Push to stack.
         PROFILER.stack[PROFILER.stack_top as usize] = index;
@@ -220,6 +224,8 @@ pub fn print_timings() {
             "AVG. TIME/CALL",
             "CYCLES INCLUSIVE",
             "CYCLES EXCLUSIVE",
+            "BYTES PROCESSED",
+            "BANDWIDTH",
         ]);
 
         for i in 0..PROFILER.entry_count() {
@@ -247,6 +253,9 @@ fn add_timing_row(table: &mut Table, entry: &ProfilerEntry) {
         let avg_cycles = (entry.cycles_inclusive as f64) / (entry.call_count as f64);
         let avg_time = (section_seconds as f64) / (entry.call_count as f64);
 
+        let mut bandwidth = (entry.bytes as f64) / (section_seconds as f64);
+        bandwidth /= GIGABYTE as f64;
+
         table.add_row(row![
             label,
             entry.call_count.to_formatted_string(locale),
@@ -255,6 +264,8 @@ fn add_timing_row(table: &mut Table, entry: &ProfilerEntry) {
             print_time(avg_time),
             format!("{} ({:.4}%)", inclusive_str, inclusive_pct),
             format!("{} ({:.4}%)", exclusive_str, exclusive_pct),
+            print_bytes(entry.bytes),
+            format!("{:.4} GB/s", bandwidth),
         ]);
     }
 }

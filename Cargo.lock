@@ -156,6 +156,7 @@ dependencies = [
  "clap",
  "env_logger",
  "function_name",
+ "get-last-error",
  "log",
  "num-format",
  "once_cell",
@@ -271,6 +272,15 @@ name = "function_name-proc-macro"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "673464e1e314dd67a0fd9544abc99e8eb28d0c7e3b69b033bcff9b2d00b87333"
+
+[[package]]
+name = "get-last-error"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce85cdf2afb6a63ee6eb6ae445afb5772b1e47b009e1433750bd5d33bd30bb2c"
+dependencies = [
+ "winapi",
+]
 
 [[package]]
 name = "getrandom"

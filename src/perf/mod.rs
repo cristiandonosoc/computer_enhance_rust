@@ -1,4 +1,5 @@
 pub mod profiler;
+pub mod repetition_testing;
 
 use core::arch::x86_64;
 use winapi::um::profileapi;
@@ -105,3 +106,23 @@ pub fn print_time(seconds: f64) -> String {
         return format!("{:.4} ns", seconds * 1_000_000_000.0);
     }
 }
+
+const KILOBYTE: u64 = 1024;
+const MEGABYTE: u64 = 1024 * 1024;
+const GIGABYTE: u64 = 1024 * 1024 * 1024;
+
+pub fn print_bytes(bytes: u64) -> String {
+    if bytes < KILOBYTE {
+        return format!("{}", bytes);
+    } else if bytes < MEGABYTE {
+        let fbytes = (bytes as f64) / (KILOBYTE as f64);
+        return format!("{:.4} KB", fbytes);
+    } else if bytes < GIGABYTE {
+        let fbytes = (bytes as f64) / (MEGABYTE as f64);
+        return format!("{:.4} MB", fbytes);
+    } else {
+        let fbytes = (bytes as f64) / (GIGABYTE as f64);
+        return format!("{:.4} GB", fbytes);
+    }
+}
+
