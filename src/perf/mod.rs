@@ -82,12 +82,12 @@ pub fn print_freq(freq: u64) -> String {
     return format!("{} GHz", freq);
 }
 
-const DAY: f64 = 24.0 * HOUR;
-const HOUR: f64 = 60.0 * MINUTE;
-const MINUTE: f64 = 60.0;
-const SECOND: f64 = 1.0;
-const MILLISECOND: f64 = 0.001;
-const MICROSECOND: f64 = 0.000_001;
+pub const DAY: f64 = 24.0 * HOUR;
+pub const HOUR: f64 = 60.0 * MINUTE;
+pub const MINUTE: f64 = 60.0;
+pub const SECOND: f64 = 1.0;
+pub const MILLISECOND: f64 = 0.001;
+pub const MICROSECOND: f64 = 0.000_001;
 
 pub fn print_time(seconds: f64) -> String {
     if seconds > DAY {
@@ -107,9 +107,9 @@ pub fn print_time(seconds: f64) -> String {
     }
 }
 
-const KILOBYTE: u64 = 1024;
-const MEGABYTE: u64 = 1024 * 1024;
-const GIGABYTE: u64 = 1024 * 1024 * 1024;
+pub const KILOBYTE: u64 = 1024;
+pub const MEGABYTE: u64 = 1024 * 1024;
+pub const GIGABYTE: u64 = 1024 * 1024 * 1024;
 
 pub fn print_bytes(bytes: u64) -> String {
     if bytes < KILOBYTE {

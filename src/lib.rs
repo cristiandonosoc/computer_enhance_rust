@@ -4,6 +4,7 @@ pub mod intel8086;
 pub mod json;
 pub mod nasm;
 pub mod perf;
+pub mod utils;
 
 #[macro_use]
 extern crate prettytable;
