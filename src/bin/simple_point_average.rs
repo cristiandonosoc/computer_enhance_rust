@@ -45,7 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                 let bytes;
                 {
                     let _size = std::fs::metadata(&filename)?.len();
-                    profile_block!("Read File", size);
+                    profile_block!("Read File", _size);
 
                     bytes = std::fs::read(filename)?;
                     info!("Input size: {}", bytes.len());

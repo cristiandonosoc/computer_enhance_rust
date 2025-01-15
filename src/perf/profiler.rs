@@ -11,12 +11,12 @@ macro_rules! profile_block {
             static INIT: std::sync::Once = std::sync::Once::new();
             static mut INDEX: u16 = 0;
             INIT.call_once(|| {
-                INDEX = crate::perf::profiler::get_next_index();
+                INDEX = $crate::perf::profiler::get_next_index();
             });
             __profiler_scope_index = INDEX;
         }
         let __profiler_scope =
-            crate::perf::profiler::start_entry(__profiler_scope_index, $label, $bytes as u64);
+            $crate::perf::profiler::start_entry(__profiler_scope_index, $label, $bytes as u64);
     };
 
     ($label:expr) => {

@@ -1,3 +1,5 @@
+#![allow(static_mut_refs)]
+
 pub mod args;
 pub mod haversine;
 pub mod intel8086;
