@@ -20,7 +20,7 @@ struct Args {
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = Args::parse();
 
-    let mut tester = RepetitionTester::default();
+    let mut tester = RepetitionTester::new();
 
     add_fs_read_test(&args, &mut tester);
     add_windows_api_alloc_everytime_test(&args, &mut tester);

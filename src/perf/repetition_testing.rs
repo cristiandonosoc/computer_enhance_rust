@@ -1,12 +1,27 @@
 use std::io::Error;
+use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess};
+use winapi::um::psapi::*;
+use winapi::um::winnt::*;
 
 use super::*;
 
-#[derive(Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct TestRun {
     pub start_timestamp: u64,
     pub end_timestamp: u64,
     pub bytes: u64,
+    pub start_page_faults: u64,
+    pub end_page_faults: u64,
+}
+
+impl TestRun {
+    fn cycles(&self) -> u64 {
+        self.end_timestamp - self.start_timestamp
+    }
+
+    fn page_faults(&self) -> u64 {
+        self.end_page_faults - self.start_page_faults
+    }
 }
 
 pub type Handler = Box<dyn FnMut(&mut TestRun) -> Result<(), Error>>;
@@ -16,14 +31,32 @@ struct TestEntry {
     handler: Handler,
 }
 
-#[derive(Default)]
 pub struct RepetitionTester {
     entries: Vec<TestEntry>,
+    process_handle: HANDLE,
 }
 
 const WAIT_SECONDS: u64 = 10;
 
 impl RepetitionTester {
+    pub fn new() -> Self {
+        let mut tester = Self {
+            entries: vec![],
+            process_handle: std::ptr::null_mut(),
+        };
+
+        unsafe {
+            tester.process_handle =
+                OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, GetCurrentProcessId());
+        }
+
+        if tester.process_handle.is_null() {
+            panic!("null process handle");
+        }
+
+        tester
+    }
+
     pub fn add_test(&mut self, name: String, handler: Handler) {
         let entry = TestEntry { name, handler };
 
@@ -60,7 +93,11 @@ impl RepetitionTester {
 
                     // Do a new run.
                     let mut run = TestRun::default();
+                    run.start_page_faults = read_page_faults(self.process_handle);
+
                     (entry.handler)(&mut run)?;
+
+                    run.end_page_faults = read_page_faults(self.process_handle);
 
                     if stats.add_run(&run, freq) {
                         best_timestamp = now;
@@ -82,6 +119,9 @@ struct TestRunStats {
     total_cycles: u64,
     count: u64,
     bytes: u64,
+
+    min_run: TestRun,
+    max_run: TestRun,
 }
 
 impl TestRunStats {
@@ -92,6 +132,8 @@ impl TestRunStats {
             total_cycles: 0,
             count: 0,
             bytes: 0,
+            min_run: TestRun::default(),
+            max_run: TestRun::default(),
         }
     }
 
@@ -100,17 +142,19 @@ impl TestRunStats {
         self.count += 1;
         self.bytes = run.bytes;
 
-        let cycles = run.end_timestamp - run.start_timestamp;
+        let cycles = run.cycles();
         self.total_cycles += cycles;
 
         if self.max < cycles {
             self.max = cycles;
+            self.max_run = run.clone();
         }
 
         if self.min > cycles {
             self.min = cycles;
+            self.min_run = run.clone();
 
-            println!("New min: {}", print_run(run.bytes, cycles, freq));
+            println!("New min: {}", print_run_stats(run.bytes, run.cycles(), freq));
 
             return true;
         }
@@ -119,16 +163,53 @@ impl TestRunStats {
     }
 
     fn print_stats(&self, freq: u64) {
-        println!("- Min: {}", print_run(self.bytes, self.min, freq));
-        println!("- Max: {}", print_run(self.bytes, self.max, freq));
+        println!("- Min: {}", print_run(&self.min_run, freq));
+        println!("- Max: {}", print_run(&self.max_run, freq));
 
         let avg = self.total_cycles / self.count;
-        println!("- Avg: {}", print_run(self.bytes, avg, freq));
+        println!("- Avg: {}", print_run_stats(self.bytes, avg, freq));
     }
 }
 
-fn print_run(bytes: u64, cycles: u64, freq: u64) -> String {
+fn print_run(run: &TestRun, freq: u64) -> String {
+    let cycles = run.cycles();
+    let seconds = get_seconds_from_cpu(cycles, freq);
+    let bandwidth = (run.bytes as f64 / seconds) / (GIGABYTE as f64);
+
+    let mut bytes_per_fault = run.bytes as f64;
+    if run.page_faults() > 0 {
+        bytes_per_fault = (run.bytes as f64) / (run.page_faults() as f64);
+    }
+
+    format!(
+        "{} ({}) {} GB/s - Page Faults: {} ({:.4} bytes/fault)",
+        cycles,
+        print_time(seconds),
+        bandwidth,
+        run.page_faults(),
+        bytes_per_fault,
+    )
+}
+
+fn print_run_stats(bytes: u64, cycles: u64, freq: u64) -> String {
     let seconds = get_seconds_from_cpu(cycles, freq);
     let bandwidth = (bytes as f64 / seconds) / (GIGABYTE as f64);
     format!("{} ({}) {} GB/s", cycles, print_time(seconds), bandwidth)
+}
+
+fn read_page_faults(process_handle: HANDLE) -> u64 {
+    unsafe {
+        let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+
+        if GetProcessMemoryInfo(
+            process_handle,
+            &mut pmc,
+            size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+        ) != 0
+        {
+            return pmc.PageFaultCount as u64;
+        } else {
+            panic!("GetProcessMemoryInfo FAILED");
+        }
+    }
 }
