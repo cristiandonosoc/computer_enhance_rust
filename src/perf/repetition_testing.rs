@@ -31,7 +31,7 @@ struct TestEntry {
 
 pub struct RepetitionTester {
     entries: Vec<TestEntry>,
-    process_handle: HANDLE,
+    pub process_handle: HANDLE,
 }
 
 const WAIT_SECONDS: u64 = 10;

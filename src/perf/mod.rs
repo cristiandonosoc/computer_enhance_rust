@@ -4,6 +4,7 @@ pub mod repetition_testing;
 use core::arch::x86_64;
 use get_last_error::Win32Error;
 use std::io::{Error, ErrorKind};
+use winapi::um::memoryapi::{VirtualAlloc, VirtualFree};
 use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess};
 use winapi::um::profileapi;
 use winapi::um::psapi::*;
@@ -158,6 +159,27 @@ pub fn read_page_faults(process_handle: HANDLE) -> u64 {
             return pmc.PageFaultCount as u64;
         } else {
             panic!("GetProcessMemoryInfo FAILED");
+        }
+    }
+}
+
+pub fn virtual_alloc(size: usize) -> *mut u8 {
+    unsafe {
+        let buffer =
+            VirtualAlloc(std::ptr::null_mut(), size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE)
+                as *mut u8;
+        if buffer.is_null() {
+            panic!("VirtualAlloc FAILED");
+        }
+
+        buffer
+    }
+}
+
+pub fn virtual_free(buffer: *mut u8) {
+    unsafe {
+        if VirtualFree(buffer as _, 0, MEM_RELEASE) == 0 {
+            panic!("VirtualFree FAILED");
         }
     }
 }
