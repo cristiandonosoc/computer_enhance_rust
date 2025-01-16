@@ -2,3 +2,5 @@
 data/tmp
 test.a
 *.rdbg
+bazel-bin/*
+bazel-*/
