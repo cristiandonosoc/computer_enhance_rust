@@ -2,7 +2,12 @@ pub mod profiler;
 pub mod repetition_testing;
 
 use core::arch::x86_64;
+use get_last_error::Win32Error;
+use std::io::{Error, ErrorKind};
+use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess};
 use winapi::um::profileapi;
+use winapi::um::psapi::*;
+use winapi::um::winnt::*;
 
 #[inline]
 pub fn read_cpu_timer() -> u64 {
@@ -126,3 +131,33 @@ pub fn print_bytes(bytes: u64) -> String {
     }
 }
 
+pub fn open_process() -> Result<HANDLE, std::io::Error> {
+    unsafe {
+        let handle =
+            OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, GetCurrentProcessId());
+        if handle.is_null() {
+            let error = Win32Error::get_last_error();
+            let message = format!("OpenProcess: {}", error);
+            return Err(Error::new(ErrorKind::Other, message));
+        }
+
+        Ok(handle)
+    }
+}
+
+pub fn read_page_faults(process_handle: HANDLE) -> u64 {
+    unsafe {
+        let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+
+        if GetProcessMemoryInfo(
+            process_handle,
+            &mut pmc,
+            size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+        ) != 0
+        {
+            return pmc.PageFaultCount as u64;
+        } else {
+            panic!("GetProcessMemoryInfo FAILED");
+        }
+    }
+}

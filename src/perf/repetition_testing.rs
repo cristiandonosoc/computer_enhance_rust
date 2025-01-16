@@ -1,6 +1,4 @@
 use std::io::Error;
-use winapi::um::processthreadsapi::{GetCurrentProcessId, OpenProcess};
-use winapi::um::psapi::*;
 use winapi::um::winnt::*;
 
 use super::*;
@@ -45,9 +43,9 @@ impl RepetitionTester {
             process_handle: std::ptr::null_mut(),
         };
 
-        unsafe {
-            tester.process_handle =
-                OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, GetCurrentProcessId());
+        match open_process() {
+            Ok(handle) => tester.process_handle = handle,
+            Err(e) => panic!("{}", e),
         }
 
         if tester.process_handle.is_null() {
@@ -195,21 +193,4 @@ fn print_run_stats(bytes: u64, cycles: u64, freq: u64) -> String {
     let seconds = get_seconds_from_cpu(cycles, freq);
     let bandwidth = (bytes as f64 / seconds) / (GIGABYTE as f64);
     format!("{} ({}) {} GB/s", cycles, print_time(seconds), bandwidth)
-}
-
-fn read_page_faults(process_handle: HANDLE) -> u64 {
-    unsafe {
-        let mut pmc: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
-
-        if GetProcessMemoryInfo(
-            process_handle,
-            &mut pmc,
-            size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
-        ) != 0
-        {
-            return pmc.PageFaultCount as u64;
-        } else {
-            panic!("GetProcessMemoryInfo FAILED");
-        }
-    }
 }
