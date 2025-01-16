@@ -9,6 +9,9 @@ struct Args {
 
     #[arg(long, default_value = "4096")]
     pub page_size: usize,
+
+    #[arg(long, default_value = "false")]
+    pub iterate_backwards: bool,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -36,8 +39,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             let page_faults_before = read_page_faults(process_handle);
 
             for i in 0..touch_count {
+                let index = if !args.iterate_backwards {
+                    i
+                } else {
+                    touch_count - 1 - i
+                };
+
+                let offset = index * args.page_size + 64;
                 let buffer = buffer as *mut u8;
-                let offset = i * args.page_size + 64;
                 *buffer.add(offset) = 1;
             }
 
