@@ -5,3 +5,12 @@ cc_binary(
         "perf.inl",
     ],
 )
+
+cc_binary(
+    name = "write_repetition_test",
+    srcs = [
+        "repetition_test.cpp",
+        "perf.inl",
+        "repetition_test.inl",
+    ]
+)
