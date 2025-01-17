@@ -1,9 +1,12 @@
 #pragma once
 
 #include <Windows.h>
+#include <assert.h>
 #include <format>
 #include <intrin.h>
 #include <profileapi.h>
+#include <psapi.h>
+#include <winnt.h>
 
 using u8 = uint8_t;
 using u64 = uint64_t;
@@ -123,4 +126,36 @@ std::string PrintBytes(u64 bytes) {
     f64 fbytes = static_cast<f64>(bytes) / static_cast<f64>(GIGABYTE);
     return std::format("{:.4} GB", fbytes);
   }
+}
+
+// Process
+// ------------------------------------------------------------------------------------------
+
+struct GlobalProcessData {
+  HANDLE ProcessHandle = NULL;
+
+  bool IsValid() const { return ProcessHandle != NULL; }
+};
+GlobalProcessData gProcessData = {};
+
+void InitProcessData() {
+  if (gProcessData.ProcessHandle != NULL) {
+    return;
+  }
+
+  HANDLE handle = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0,
+                              GetCurrentProcessId());
+  assert(handle != NULL);
+  gProcessData.ProcessHandle = handle;
+}
+
+u64 ReadPageFaults() {
+  assert(gProcessData.IsValid());
+
+  PROCESS_MEMORY_COUNTERS counters;
+  BOOL result = GetProcessMemoryInfo(gProcessData.ProcessHandle, &counters,
+                                     sizeof(counters));
+  assert(result);
+
+  return counters.PageFaultCount;
 }

@@ -8,6 +8,7 @@
 constexpr u64 kSize = GIGABYTE;
 
 int main() {
+  InitProcessData();
 
   AddRepetitionTest("WriteAllBytesForward (alloc everytime)", [](TestRun *run) {
     u8 *buffer = (u8 *)VirtualAlloc(NULL, kSize, MEM_COMMIT | MEM_RESERVE,
@@ -16,6 +17,7 @@ int main() {
 
     run->Bytes = kSize;
     run->StartCycles = ReadCPUTimer();
+    run->StartPageFaults = ReadPageFaults();
 
     // Write all of it.
 
@@ -24,6 +26,7 @@ int main() {
     }
 
     run->EndCycles = ReadCPUTimer();
+    run->EndPageFaults = ReadPageFaults();
 
     VirtualFree(buffer, 0, MEM_RELEASE);
   });
